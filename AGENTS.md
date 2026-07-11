@@ -198,4 +198,5 @@ telebot:
 
 ## 参考
 
-- 推送 API 文档：https://www.chuckfang.com/MeoW/api_doc.html
+- MeoW Push API 消息推送接口文档：https://www.chuckfang.com/MeoW/api_doc.html
+- 魔法推送：https://github.com/magiccode1412/magicpush
