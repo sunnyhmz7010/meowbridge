@@ -21,16 +21,8 @@ func (s *Store) Bootstrap(ctx context.Context, opts BootstrapOptions) error {
 		return err
 	}
 	needsAdminPassword := count == 0
-	_, err := s.GetSetting(ctx, "meow_api_base_url")
-	needsMeowAPIBaseURL := errors.Is(err, ErrNotFound)
-	if err != nil && !needsMeowAPIBaseURL {
-		return err
-	}
 	if needsAdminPassword && opts.AdminPassword == "" {
 		return errors.New("ADMIN_PASSWORD is required for initial bootstrap")
-	}
-	if needsMeowAPIBaseURL && opts.MeowAPIBaseURL == "" {
-		return errors.New("MEOW_API_BASE_URL is required for initial bootstrap")
 	}
 
 	if needsAdminPassword {
@@ -49,6 +41,17 @@ func (s *Store) Bootstrap(ctx context.Context, opts BootstrapOptions) error {
 		return err
 	}
 	return s.insertSettingIfMissing(ctx, "log_retention_days", strconv.Itoa(opts.LogRetentionDays))
+}
+
+func (s *Store) AdminPasswordHash(ctx context.Context) (string, error) {
+	var hash string
+	err := s.db.QueryRowContext(ctx, `SELECT password_hash FROM admin_users ORDER BY id ASC LIMIT 1`).Scan(&hash)
+	return hash, err
+}
+
+func (s *Store) UpdateAdminPasswordHash(ctx context.Context, hash string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE admin_users SET password_hash = ?, updated_at = ? WHERE id = (SELECT id FROM admin_users ORDER BY id ASC LIMIT 1)`, hash, time.Now().UTC())
+	return err
 }
 
 func (s *Store) insertSettingIfMissing(ctx context.Context, key, value string) error {
