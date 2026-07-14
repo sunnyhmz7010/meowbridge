@@ -60,13 +60,25 @@ func TestWebhookReturns404ForUnknownToken(t *testing.T) {
 	st := newHTTPTestStore(t)
 	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
 
-	req := httptest.NewRequest(http.MethodPost, "/webhook/missing", bytes.NewBufferString(`{"message":"hello"}`))
+	body := &countingErrorBody{}
+	req := httptest.NewRequest(http.MethodPost, "/webhook/missing", nil)
+	req.Body = body
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status = %d", rr.Code)
+	}
+	if body.reads != 0 {
+		t.Fatalf("body reads = %d, want 0", body.reads)
+	}
+	logs, err := st.ListPushLogs(context.Background())
+	if err != nil {
+		t.Fatalf("ListPushLogs: %v", err)
+	}
+	if len(logs) != 0 {
+		t.Fatalf("logs = %#v", logs)
 	}
 }
 
@@ -111,7 +123,7 @@ func TestWebhookTextPlainWithCharsetUsesQueryOverride(t *testing.T) {
 	}
 }
 
-func TestWebhookLogsEntireLargeTextPayload(t *testing.T) {
+func TestWebhookRejectsOversizedBodyWithoutForwardingOrLoggingPayload(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
 	_, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Large", Token: "large-token", MeowNickname: "sunny", MsgType: "text", HTMLHeight: 200, Active: true})
@@ -119,7 +131,9 @@ func TestWebhookLogsEntireLargeTextPayload(t *testing.T) {
 		t.Fatalf("CreateEndpoint: %v", err)
 	}
 
+	upstreamCalls := 0
 	meowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamCalls++
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer meowServer.Close()
@@ -131,15 +145,48 @@ func TestWebhookLogsEntireLargeTextPayload(t *testing.T) {
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusOK {
+	if rr.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	if upstreamCalls != 0 {
+		t.Fatalf("upstream calls = %d, want 0", upstreamCalls)
 	}
 	logs, err := st.ListPushLogs(ctx)
 	if err != nil {
 		t.Fatalf("ListPushLogs: %v", err)
 	}
-	if len(logs) != 1 || logs[0].RequestPayload != payload {
-		t.Fatalf("logged payload length = %d, want %d", len(logs[0].RequestPayload), len(payload))
+	if len(logs) != 1 || logs[0].RequestPayload != "" {
+		t.Fatalf("logs = %#v", logs)
+	}
+}
+
+func TestDisabledWebhookDoesNotReadOrLogBody(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	_, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Disabled", Token: "disabled-token", MeowNickname: "sunny", MsgType: "text", HTMLHeight: 200, Active: false})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+	body := &countingErrorBody{}
+	req := httptest.NewRequest(http.MethodPost, "/webhook/disabled-token", nil)
+	req.Body = body
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	if body.reads != 0 {
+		t.Fatalf("body reads = %d, want 0", body.reads)
+	}
+	logs, err := st.ListPushLogs(ctx)
+	if err != nil {
+		t.Fatalf("ListPushLogs: %v", err)
+	}
+	if len(logs) != 1 || logs[0].RequestPayload != "" || logs[0].ErrorMessage != "endpoint is disabled" {
+		t.Fatalf("logs = %#v", logs)
 	}
 }
 
@@ -165,11 +212,18 @@ func TestWebhookMeowFailureReturns502AndWritesFailureLog(t *testing.T) {
 	if rr.Code != http.StatusBadGateway {
 		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
 	}
+	var responseBody map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &responseBody); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if responseBody["error"] != "meow upstream request failed" {
+		t.Fatalf("public error = %q", responseBody["error"])
+	}
 	logs, err := st.ListPushLogs(ctx)
 	if err != nil {
 		t.Fatalf("ListPushLogs: %v", err)
 	}
-	if len(logs) != 1 || logs[0].Success || logs[0].MeowStatusCode != http.StatusServiceUnavailable || logs[0].RequestPayload != "failed push" {
+	if len(logs) != 1 || logs[0].Success || logs[0].MeowStatusCode != http.StatusServiceUnavailable || logs[0].RequestPayload != "failed push" || logs[0].ErrorMessage != "meow upstream returned 503" {
 		t.Fatalf("logs = %#v", logs)
 	}
 }
@@ -232,6 +286,17 @@ func TestWebhookMeowFailureReturns502WhenLogWriteFails(t *testing.T) {
 type failingPushLogStore struct {
 	*store.Store
 }
+
+type countingErrorBody struct {
+	reads int
+}
+
+func (b *countingErrorBody) Read([]byte) (int, error) {
+	b.reads++
+	return 0, errors.New("body must not be read")
+}
+
+func (*countingErrorBody) Close() error { return nil }
 
 func (failingPushLogStore) CreatePushLog(context.Context, store.PushLogInput) (int64, error) {
 	return 0, errors.New("push log unavailable")

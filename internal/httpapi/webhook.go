@@ -16,6 +16,8 @@ import (
 	"github.com/sunnyhmz7010/meowbridge/internal/webhook"
 )
 
+const maxWebhookRequestBodyBytes = 1 << 20
+
 func (api *API) handleVerifyToken(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")
 	ep, err := api.deps.Store.GetEndpointByToken(r.Context(), token)
@@ -41,16 +43,22 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		api.writeWebhookLog(r, ep, webhook.ParsedMessage{}, webhook.FinalMessage{}, 0, "", false, "failed to read request body", "")
-		respond.Error(w, http.StatusBadRequest, "failed to read request body")
+	if !ep.Active {
+		api.writeWebhookLog(r, ep, webhook.ParsedMessage{}, webhook.FinalMessage{}, 0, "", false, "endpoint is disabled", "")
+		respond.Error(w, http.StatusForbidden, "endpoint is disabled")
 		return
 	}
-	if !ep.Active {
-		api.writeWebhookLog(r, ep, webhook.ParsedMessage{}, webhook.FinalMessage{}, 0, "", false, "endpoint is disabled", string(body))
-		respond.Error(w, http.StatusForbidden, "endpoint is disabled")
+
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxWebhookRequestBodyBytes))
+	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			api.writeWebhookLog(r, ep, webhook.ParsedMessage{}, webhook.FinalMessage{}, 0, "", false, "request body too large", "")
+			respond.Error(w, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
+		api.writeWebhookLog(r, ep, webhook.ParsedMessage{}, webhook.FinalMessage{}, 0, "", false, "failed to read request body", "")
+		respond.Error(w, http.StatusBadRequest, "failed to read request body")
 		return
 	}
 	if len(strings.TrimSpace(string(body))) == 0 {
@@ -90,7 +98,7 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	})
 	if pushErr != nil {
 		api.writeWebhookLog(r, ep, parsed, final, meowResp.StatusCode, meowResp.Body, false, pushErr.Error(), string(body))
-		respond.Error(w, http.StatusBadGateway, pushErr.Error())
+		respond.Error(w, http.StatusBadGateway, "meow upstream request failed")
 		return
 	}
 	logID, err := api.writeWebhookLog(r, ep, parsed, final, meowResp.StatusCode, meowResp.Body, true, "", string(body))

@@ -123,6 +123,34 @@ func TestAdminEndpointDefaultsActiveAndPreservesMeowNickname(t *testing.T) {
 	}
 }
 
+func TestAdminSetEndpointActiveRequiresActiveField(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	endpoint, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Active", Token: "active-token", MeowNickname: "sunny", MsgType: "text", Active: true})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+	req := httptest.NewRequest(http.MethodPatch, "/api/admin/endpoints/"+strconv.FormatInt(endpoint.ID, 10)+"/active", bytes.NewBufferString(`{}`))
+	req.Header.Set("Authorization", "Bearer "+adminToken(t, router))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	got, err := st.GetEndpoint(ctx, endpoint.ID)
+	if err != nil {
+		t.Fatalf("GetEndpoint: %v", err)
+	}
+	if !got.Active {
+		t.Fatal("endpoint was disabled when active field was missing")
+	}
+}
+
 func TestAdminPushLogListOmitsSensitiveFields(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
@@ -144,6 +172,23 @@ func TestAdminPushLogListOmitsSensitiveFields(t *testing.T) {
 		if strings.Contains(rr.Body.String(), sensitive) {
 			t.Fatalf("list response exposed %q: %s", sensitive, rr.Body.String())
 		}
+	}
+}
+
+func TestAdminMissingPushLogReturns404(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/push-logs/999", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t, router))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
 	}
 }
 
@@ -186,6 +231,68 @@ func TestAdminSettingsAndPasswordChangesPersist(t *testing.T) {
 	}
 }
 
+func TestAdminSettingsUpdateChangesNextWebhookPushTarget(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	firstCalls := 0
+	firstServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		firstCalls++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer firstServer.Close()
+	secondCalls := 0
+	secondServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		secondCalls++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer secondServer.Close()
+
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: firstServer.URL, LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	_, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Dynamic", Token: "dynamic-token", MeowNickname: "sunny", MsgType: "text", HTMLHeight: 200, Active: true})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+	router := NewRouter(Dependencies{
+		Store:  st,
+		Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second},
+		MeowClient: meow.NewWithBaseURLProvider(func(ctx context.Context) (string, error) {
+			return st.GetSetting(ctx, "meow_api_base_url")
+		}, time.Second),
+	})
+
+	postWebhook := func() {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, "/webhook/dynamic-token", strings.NewReader("dynamic push"))
+		req.Header.Set("Content-Type", "text/plain")
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("webhook status = %d body = %s", rr.Code, rr.Body.String())
+		}
+	}
+
+	postWebhook()
+	token := adminToken(t, router)
+	settingsBody, err := json.Marshal(map[string]string{"meow_api_base_url": secondServer.URL})
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	settingsReq := httptest.NewRequest(http.MethodPut, "/api/admin/settings", bytes.NewReader(settingsBody))
+	settingsReq.Header.Set("Authorization", "Bearer "+token)
+	settingsRR := httptest.NewRecorder()
+	router.ServeHTTP(settingsRR, settingsReq)
+	if settingsRR.Code != http.StatusOK {
+		t.Fatalf("settings status = %d body = %s", settingsRR.Code, settingsRR.Body.String())
+	}
+	postWebhook()
+
+	if firstCalls != 1 || secondCalls != 1 {
+		t.Fatalf("push calls: first = %d, second = %d", firstCalls, secondCalls)
+	}
+}
+
 func TestAdminRejectsInvalidRetentionDaysAndEmptyNewPassword(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
@@ -213,6 +320,38 @@ func TestAdminRejectsInvalidRetentionDaysAndEmptyNewPassword(t *testing.T) {
 	router.ServeHTTP(passwordRR, passwordReq)
 	if passwordRR.Code != http.StatusBadRequest {
 		t.Fatalf("password status = %d body = %s", passwordRR.Code, passwordRR.Body.String())
+	}
+}
+
+func TestAdminRejectsInvalidMeowAPIBaseURL(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	const originalURL = "https://meow.example.test"
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: originalURL, LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+	token := adminToken(t, router)
+
+	for _, value := range []string{"", "/relative", "ftp://meow.example.test", "https:///missing-host"} {
+		t.Run(value, func(t *testing.T) {
+			body, err := json.Marshal(map[string]string{"meow_api_base_url": value})
+			if err != nil {
+				t.Fatalf("Marshal: %v", err)
+			}
+			req := httptest.NewRequest(http.MethodPut, "/api/admin/settings", bytes.NewReader(body))
+			req.Header.Set("Authorization", "Bearer "+token)
+			rr := httptest.NewRecorder()
+			router.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusBadRequest {
+				t.Fatalf("value %q status = %d body = %s", value, rr.Code, rr.Body.String())
+			}
+			got, err := st.GetSetting(ctx, "meow_api_base_url")
+			if err != nil || got != originalURL {
+				t.Fatalf("stored URL = %q, %v; want %q", got, err, originalURL)
+			}
+		})
 	}
 }
 

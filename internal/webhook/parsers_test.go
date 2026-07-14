@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 )
@@ -16,6 +17,41 @@ func TestParseGitHubPullRequest(t *testing.T) {
 	}
 	if parsed.SourceType != "github_pr" || parsed.Title != "Add webhook" || parsed.Msg != "Adds support" {
 		t.Fatalf("parsed = %#v", parsed)
+	}
+}
+
+func TestParseTopLevelArrayFallsBackToFullJSON(t *testing.T) {
+	parsed, err := Parse(ParseInput{Headers: http.Header{}, Body: []byte(`[{"event":"started"},{"event":"finished"}]`)})
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if parsed.SourceType != "fallback" || parsed.Msg == "" {
+		t.Fatalf("parsed = %#v", parsed)
+	}
+	var payload []map[string]string
+	if err := json.Unmarshal([]byte(parsed.Msg), &payload); err != nil {
+		t.Fatalf("fallback message is not full JSON: %v", err)
+	}
+	if len(payload) != 2 || payload[1]["event"] != "finished" {
+		t.Fatalf("payload = %#v", payload)
+	}
+}
+
+func TestParseProviderWithEmptyMessageFallsBackToFullJSON(t *testing.T) {
+	const body = `{"title":"Gotify title","message":"","priority":5}`
+	parsed, err := Parse(ParseInput{Headers: http.Header{}, Body: []byte(body)})
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if parsed.SourceType != "fallback" || parsed.Msg == "" {
+		t.Fatalf("parsed = %#v", parsed)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(parsed.Msg), &payload); err != nil {
+		t.Fatalf("fallback message is not full JSON: %v", err)
+	}
+	if payload["title"] != "Gotify title" || payload["priority"] != float64(5) {
+		t.Fatalf("payload = %#v", payload)
 	}
 }
 

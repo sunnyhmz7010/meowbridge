@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -242,13 +243,17 @@ func (api *API) handleSetEndpointActive(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var req struct {
-		Active bool `json:"active"`
+		Active *bool `json:"active"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if err := api.deps.Store.SetEndpointActive(r.Context(), id, req.Active); err != nil {
+	if req.Active == nil {
+		respond.Error(w, http.StatusBadRequest, "active is required")
+		return
+	}
+	if err := api.deps.Store.SetEndpointActive(r.Context(), id, *req.Active); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			respond.Error(w, http.StatusNotFound, "endpoint not found")
 		} else {
@@ -256,7 +261,7 @@ func (api *API) handleSetEndpointActive(w http.ResponseWriter, r *http.Request) 
 		}
 		return
 	}
-	respond.OK(w, map[string]bool{"active": req.Active})
+	respond.OK(w, map[string]bool{"active": *req.Active})
 }
 
 func (api *API) handleListPushLogs(w http.ResponseWriter, r *http.Request) {
@@ -329,6 +334,15 @@ func (api *API) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 			respond.Error(w, http.StatusBadRequest, "log_retention_days must be a positive integer")
 			return
 		}
+	}
+	if value, ok := values["meow_api_base_url"]; ok {
+		value = strings.TrimSpace(value)
+		parsed, err := url.Parse(value)
+		if err != nil || value == "" || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			respond.Error(w, http.StatusBadRequest, "meow_api_base_url must be an absolute http or https URL")
+			return
+		}
+		values["meow_api_base_url"] = value
 	}
 	for _, key := range []string{"meow_api_base_url", "log_retention_days"} {
 		if value, ok := values[key]; ok {

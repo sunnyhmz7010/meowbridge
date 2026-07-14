@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"time"
 )
 
@@ -39,7 +41,11 @@ func (s *Store) GetPushLog(ctx context.Context, id int64) (PushLog, error) {
 		SELECT id, endpoint_id, endpoint_name, token, source_type, request_method, request_headers, request_query, request_payload, parsed_title, parsed_msg, parsed_msg_type, meow_status_code, meow_response_body, success, error_message, created_at
 		FROM push_logs WHERE id = ?
 	`, id)
-	return scanPushLog(row)
+	log, err := scanPushLog(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return PushLog{}, ErrNotFound
+	}
+	return log, err
 }
 
 func (s *Store) ListPushLogs(ctx context.Context) ([]PushLog, error) {

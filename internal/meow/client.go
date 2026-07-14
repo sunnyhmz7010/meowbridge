@@ -16,8 +16,8 @@ import (
 const maxResponseBytes = 16 * 1024
 
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
+	baseURLProvider func(context.Context) (string, error)
+	httpClient      *http.Client
 }
 
 type PushRequest struct {
@@ -36,8 +36,14 @@ type PushResponse struct {
 }
 
 func New(baseURL string, timeout time.Duration) *Client {
+	return NewWithBaseURLProvider(func(context.Context) (string, error) {
+		return baseURL, nil
+	}, timeout)
+}
+
+func NewWithBaseURLProvider(provider func(context.Context) (string, error), timeout time.Duration) *Client {
 	return &Client{
-		baseURL: strings.TrimRight(baseURL, "/"),
+		baseURLProvider: provider,
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
@@ -45,7 +51,11 @@ func New(baseURL string, timeout time.Duration) *Client {
 }
 
 func (c *Client) Push(ctx context.Context, req PushRequest) (PushResponse, error) {
-	target, err := url.Parse(c.baseURL + "/" + url.PathEscape(req.Nickname))
+	baseURL, err := c.baseURLProvider(ctx)
+	if err != nil {
+		return PushResponse{}, err
+	}
+	target, err := url.Parse(strings.TrimRight(baseURL, "/") + "/" + url.PathEscape(req.Nickname))
 	if err != nil {
 		return PushResponse{}, err
 	}

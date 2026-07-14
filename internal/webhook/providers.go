@@ -112,7 +112,7 @@ func parseGeneric(input ParseInput, payload map[string]any) (ParsedMessage, bool
 	return ParsedMessage{SourceType: "generic", Title: stringValue(payload, "title"), Msg: msg, URL: stringValue(payload, "url"), ImgURL: stringValue(payload, "imgUrl"), MsgType: stringValue(payload, "msgType")}, true
 }
 
-func parseFallback(input ParseInput, payload map[string]any) (ParsedMessage, bool) {
+func parseFallback(input ParseInput, payload any) (ParsedMessage, bool) {
 	return ParsedMessage{SourceType: "fallback", Title: "Webhook", Msg: prettyJSON(payload), MsgType: "markdown"}, true
 }
 

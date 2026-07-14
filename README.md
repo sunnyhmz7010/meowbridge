@@ -64,16 +64,22 @@ Webhook 请求会按解析器链处理：GitHub Pull Request、GitHub Actions、
 
 ## 🗂️ 项目结构
 
-- 项目入口：`cmd/meowbridge`
-- 内部模块：
-  - `internal/auth`
-  - `internal/config`
-  - `internal/httpapi`
-  - `internal/meow`
-  - `internal/respond`
-  - `internal/store`
-  - `internal/token`
-  - `internal/webhook`
+<pre><code>meowbridge/
+├── cmd/
+│   └── meowbridge/     # 服务入口与 HTTP Server 配置
+├── internal/
+│   ├── auth/           # 管理员密码与 JWT 鉴权
+│   ├── config/         # 环境变量配置
+│   ├── httpapi/        # Webhook 与管理 API
+│   ├── meow/           # MeoW 推送客户端
+│   ├── respond/        # 统一 HTTP 响应
+│   ├── store/          # SQLite 数据访问
+│   ├── token/          # Webhook token 生成
+│   └── webhook/        # Payload 解析与消息合并
+├── SECURITY.md
+├── LICENSE
+└── README.md
+</code></pre>
 
 ## 👨‍💻 本地开发
 
