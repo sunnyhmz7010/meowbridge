@@ -89,19 +89,19 @@ Test files:
 - Produces: `respond.WebhookOK(w http.ResponseWriter, logID int64)`
 - Produces: `respond.Error(w http.ResponseWriter, status int, message string)`
 
-- [ ] **Step 1: Create isolated implementation branch or worktree**
+- [ ] **Step 1: Verify isolated implementation worktree**
 
 Run:
 
 ```powershell
 rtk git status --short
-rtk git switch -c feat/mvp-backend
+rtk git branch --show-current
 ```
 
 Expected:
 
 ```text
-Switched to a new branch 'feat/mvp-backend'
+feat/mvp-backend
 ```
 
 - [ ] **Step 2: Write failing config tests**
@@ -1327,7 +1327,7 @@ func TestParseKnownProvidersAndFallback(t *testing.T) {
 		{"grafana", `{"alerts":[{"labels":{"alertname":"CPUHigh"},"annotations":{"message":"CPU high"}}],"externalURL":"https://grafana.test"}`, "grafana"},
 		{"prometheus", `{"receiver":"default","alerts":[{"labels":{"alertname":"DiskFull"},"annotations":{"description":"disk full"}}]}`, "prometheus"},
 		{"zabbix", `{"trigger":{"description":"Host down"},"event":{"description":"host unavailable"}}`, "zabbix"},
-		{"gotify", `{"title":"Gotify title","message":"Gotify message"}`, "gotify"},
+		{"gotify", `{"title":"Gotify title","message":"Gotify message","priority":5}`, "gotify"},
 		{"emby", `{"Title":"Playback started","Description":"Movie"}`, "emby"},
 		{"generic", `{"title":"Generic title","message":"Generic message"}`, "generic"},
 		{"fallback", `{"unexpected":{"nested":true}}`, "fallback"},
@@ -1591,6 +1591,9 @@ func parseZabbix(input ParseInput, payload map[string]any) (ParsedMessage, bool)
 
 func parseGotify(input ParseInput, payload map[string]any) (ParsedMessage, bool) {
 	if _, ok := payload["message"]; !ok {
+		return ParsedMessage{}, false
+	}
+	if payload["priority"] == nil && payload["extras"] == nil {
 		return ParsedMessage{}, false
 	}
 	return ParsedMessage{SourceType: "gotify", Title: stringValue(payload, "title"), Msg: stringValue(payload, "message"), MsgType: "markdown"}, true
@@ -2555,6 +2558,20 @@ import (
 	"github.com/sunnyhmz7010/meowbridge/internal/token"
 )
 
+type pushLogListItem struct {
+	ID             int64     `json:"id"`
+	EndpointID     int64     `json:"endpoint_id"`
+	EndpointName   string    `json:"endpoint_name"`
+	SourceType     string    `json:"source_type"`
+	ParsedTitle    string    `json:"parsed_title"`
+	ParsedMsg      string    `json:"parsed_msg"`
+	ParsedMsgType  string    `json:"parsed_msg_type"`
+	MeowStatusCode int       `json:"meow_status_code"`
+	Success        bool      `json:"success"`
+	ErrorMessage   string    `json:"error_message"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
 type loginRequest struct {
 	Password string `json:"password"`
 }
@@ -2567,7 +2584,7 @@ type endpointRequest struct {
 	HTMLHeight    int    `json:"html_height"`
 	DefaultURL    string `json:"default_url"`
 	DefaultImgURL string `json:"default_img_url"`
-	Active        bool   `json:"active"`
+	Active        *bool  `json:"active"`
 }
 
 func (api *API) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -2629,7 +2646,7 @@ func (api *API) handleCreateEndpoint(w http.ResponseWriter, r *http.Request) {
 		HTMLHeight:    defaultInt(req.HTMLHeight, 200),
 		DefaultURL:    req.DefaultURL,
 		DefaultImgURL: req.DefaultImgURL,
-		Active:        req.Active,
+		Active:        defaultBool(req.Active, true),
 	})
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "failed to create endpoint")
@@ -2663,6 +2680,20 @@ func defaultInt(value, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+func defaultBool(value *bool, fallback bool) bool {
+	if value == nil {
+		return fallback
+	}
+	return *value
+}
+
+func truncateString(value string, limit int) string {
+	if len(value) <= limit {
+		return value
+	}
+	return value[:limit]
 }
 ```
 
@@ -2707,7 +2738,7 @@ func (api *API) handleUpdateEndpoint(w http.ResponseWriter, r *http.Request) {
 		HTMLHeight:    defaultInt(req.HTMLHeight, 200),
 		DefaultURL:    req.DefaultURL,
 		DefaultImgURL: req.DefaultImgURL,
-		Active:        req.Active,
+		Active:        defaultBool(req.Active, true),
 	})
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "failed to update endpoint")
@@ -2774,7 +2805,23 @@ func (api *API) handleListPushLogs(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusInternalServerError, "failed to list push logs")
 		return
 	}
-	respond.OK(w, logs)
+	items := make([]pushLogListItem, 0, len(logs))
+	for _, log := range logs {
+		items = append(items, pushLogListItem{
+			ID:             log.ID,
+			EndpointID:     log.EndpointID,
+			EndpointName:   log.EndpointName,
+			SourceType:     log.SourceType,
+			ParsedTitle:    log.ParsedTitle,
+			ParsedMsg:      truncateString(log.ParsedMsg, 200),
+			ParsedMsgType:  log.ParsedMsgType,
+			MeowStatusCode: log.MeowStatusCode,
+			Success:        log.Success,
+			ErrorMessage:   log.ErrorMessage,
+			CreatedAt:      log.CreatedAt,
+		})
+	}
+	respond.OK(w, items)
 }
 
 func (api *API) handleGetPushLog(w http.ResponseWriter, r *http.Request) {
