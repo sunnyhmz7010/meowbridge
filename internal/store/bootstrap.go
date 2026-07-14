@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
+	"github.com/sunnyhmz7010/meowbridge/internal/auth"
 )
 
 type BootstrapOptions struct {
@@ -34,7 +34,7 @@ func (s *Store) Bootstrap(ctx context.Context, opts BootstrapOptions) error {
 	}
 
 	if needsAdminPassword {
-		hash, err := bcrypt.GenerateFromPassword([]byte(opts.AdminPassword), bcrypt.DefaultCost)
+		hash, err := auth.HashPassword(opts.AdminPassword)
 		if err != nil {
 			return err
 		}
