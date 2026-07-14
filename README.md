@@ -36,9 +36,7 @@ go run ./cmd/meowbridge
 
 创建 endpoint 后，将生成的 Webhook 地址填入外部服务：
 
-```text
-https://your-domain.example/webhook/{token}
-```
+`https://your-domain.example/webhook/{token}`
 
 纯文本推送：
 
@@ -66,18 +64,16 @@ Webhook 请求会按解析器链处理：GitHub Pull Request、GitHub Actions、
 
 ## 🗂️ 项目结构
 
-```text
-.
-├── cmd/meowbridge
-├── internal/auth
-├── internal/config
-├── internal/httpapi
-├── internal/meow
-├── internal/respond
-├── internal/store
-├── internal/token
-└── internal/webhook
-```
+- 项目入口：`cmd/meowbridge`
+- 内部模块：
+  - `internal/auth`
+  - `internal/config`
+  - `internal/httpapi`
+  - `internal/meow`
+  - `internal/respond`
+  - `internal/store`
+  - `internal/token`
+  - `internal/webhook`
 
 ## 👨‍💻 本地开发
 
