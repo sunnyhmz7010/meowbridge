@@ -276,6 +276,41 @@ func TestListSettingsReturnsValues(t *testing.T) {
 	}
 }
 
+func TestPushLogCreateListDetailCleanup(t *testing.T) {
+	ctx := context.Background()
+	st, cleanup := openTestStore(t)
+	defer cleanup()
+
+	id, err := st.CreatePushLog(ctx, PushLogInput{
+		EndpointID:       1,
+		EndpointName:     "GitHub",
+		Token:            "token-1",
+		SourceType:       "github",
+		RequestMethod:    "POST",
+		RequestHeaders:   `{"content-type":["application/json"]}`,
+		RequestQuery:     `{"title":["override"]}`,
+		RequestPayload:   `{"message":"hello"}`,
+		ParsedTitle:      "title",
+		ParsedMsg:        "message",
+		ParsedMsgType:    "text",
+		MeowStatusCode:   200,
+		MeowResponseBody: "ok",
+		Success:          true,
+		ErrorMessage:     "",
+	})
+	if err != nil {
+		t.Fatalf("CreatePushLog: %v", err)
+	}
+	log, err := st.GetPushLog(ctx, id)
+	if err != nil {
+		t.Fatalf("GetPushLog: %v", err)
+	}
+	if log.RequestPayload == "" || !log.Success {
+
+		t.Fatalf("log = %#v", log)
+	}
+}
+
 func openTestStore(t *testing.T) (*Store, func()) {
 	t.Helper()
 	ctx := context.Background()
