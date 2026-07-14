@@ -16,6 +16,14 @@ type BootstrapOptions struct {
 }
 
 func (s *Store) Bootstrap(ctx context.Context, opts BootstrapOptions) error {
+	_, err := s.GetSetting(ctx, "meow_api_base_url")
+	if errors.Is(err, ErrNotFound) && opts.MeowAPIBaseURL == "" {
+		return errors.New("MEOW_API_BASE_URL is required for initial bootstrap")
+	}
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return err
+	}
+
 	var count int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&count); err != nil {
 		return err

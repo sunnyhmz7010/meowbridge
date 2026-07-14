@@ -78,7 +78,7 @@ func TestAdminRoutesRequireJWT(t *testing.T) {
 func TestAdminEndpointDefaultsActiveAndPreservesMeowNickname(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
@@ -99,6 +99,9 @@ func TestAdminEndpointDefaultsActiveAndPreservesMeowNickname(t *testing.T) {
 	if !endpoints[0].Active {
 		t.Fatal("endpoint should default to active")
 	}
+	if err := st.SetEndpointActive(ctx, endpoints[0].ID, false); err != nil {
+		t.Fatalf("SetEndpointActive: %v", err)
+	}
 
 	updateReq := httptest.NewRequest(http.MethodPut, "/api/admin/endpoints/"+strconv.FormatInt(endpoints[0].ID, 10), bytes.NewBufferString(`{"name":"Renamed","meow_nickname":"other"}`))
 	updateReq.Header.Set("Authorization", "Bearer "+token)
@@ -115,12 +118,15 @@ func TestAdminEndpointDefaultsActiveAndPreservesMeowNickname(t *testing.T) {
 	if updated.MeowNickname != "sunny" {
 		t.Fatalf("meow nickname = %q, want sunny", updated.MeowNickname)
 	}
+	if updated.Active {
+		t.Fatal("endpoint should remain inactive when update omits active")
+	}
 }
 
 func TestAdminPushLogListOmitsSensitiveFields(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	if _, err := st.CreatePushLog(ctx, store.PushLogInput{Token: "secret-token", RequestHeaders: "Authorization: secret", RequestPayload: "full payload", ParsedMsg: strings.Repeat("x", 201)}); err != nil {
@@ -144,7 +150,7 @@ func TestAdminPushLogListOmitsSensitiveFields(t *testing.T) {
 func TestAdminSettingsAndPasswordChangesPersist(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
@@ -177,6 +183,36 @@ func TestAdminSettingsAndPasswordChangesPersist(t *testing.T) {
 	router.ServeHTTP(loginRR, loginReq)
 	if loginRR.Code != http.StatusOK {
 		t.Fatalf("new password login status = %d body = %s", loginRR.Code, loginRR.Body.String())
+	}
+}
+
+func TestAdminRejectsInvalidRetentionDaysAndEmptyNewPassword(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+	token := adminToken(t, router)
+
+	settingsReq := httptest.NewRequest(http.MethodPut, "/api/admin/settings", bytes.NewBufferString(`{"log_retention_days":"0"}`))
+	settingsReq.Header.Set("Authorization", "Bearer "+token)
+	settingsRR := httptest.NewRecorder()
+	router.ServeHTTP(settingsRR, settingsReq)
+	if settingsRR.Code != http.StatusBadRequest {
+		t.Fatalf("settings status = %d body = %s", settingsRR.Code, settingsRR.Body.String())
+	}
+	retentionDays, err := st.GetSetting(ctx, "log_retention_days")
+	if err != nil || retentionDays != "14" {
+		t.Fatalf("log_retention_days = %q, %v; want 14", retentionDays, err)
+	}
+
+	passwordReq := httptest.NewRequest(http.MethodPost, "/api/admin/change-password", bytes.NewBufferString(`{"old_password":"admin-password","new_password":""}`))
+	passwordReq.Header.Set("Authorization", "Bearer "+token)
+	passwordRR := httptest.NewRecorder()
+	router.ServeHTTP(passwordRR, passwordReq)
+	if passwordRR.Code != http.StatusBadRequest {
+		t.Fatalf("password status = %d body = %s", passwordRR.Code, passwordRR.Body.String())
 	}
 }
 

@@ -168,7 +168,22 @@ func (api *API) handleUpdateEndpoint(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	ep, err := api.deps.Store.UpdateEndpoint(r.Context(), id, store.EndpointUpdate{Name: req.Name, DefaultTitle: req.DefaultTitle, MsgType: defaultString(req.MsgType, "text"), HTMLHeight: defaultInt(req.HTMLHeight, 200), DefaultURL: req.DefaultURL, DefaultImgURL: req.DefaultImgURL, Active: defaultBool(req.Active, true)})
+	active := true
+	if req.Active == nil {
+		existing, err := api.deps.Store.GetEndpoint(r.Context(), id)
+		if errors.Is(err, store.ErrNotFound) {
+			respond.Error(w, http.StatusNotFound, "endpoint not found")
+			return
+		}
+		if err != nil {
+			respond.Error(w, http.StatusInternalServerError, "failed to get endpoint")
+			return
+		}
+		active = existing.Active
+	} else {
+		active = *req.Active
+	}
+	ep, err := api.deps.Store.UpdateEndpoint(r.Context(), id, store.EndpointUpdate{Name: req.Name, DefaultTitle: req.DefaultTitle, MsgType: defaultString(req.MsgType, "text"), HTMLHeight: defaultInt(req.HTMLHeight, 200), DefaultURL: req.DefaultURL, DefaultImgURL: req.DefaultImgURL, Active: active})
 	if errors.Is(err, store.ErrNotFound) {
 		respond.Error(w, http.StatusNotFound, "endpoint not found")
 		return
@@ -308,6 +323,13 @@ func (api *API) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+	if value, ok := values["log_retention_days"]; ok {
+		days, err := strconv.Atoi(value)
+		if err != nil || days <= 0 {
+			respond.Error(w, http.StatusBadRequest, "log_retention_days must be a positive integer")
+			return
+		}
+	}
 	for _, key := range []string{"meow_api_base_url", "log_retention_days"} {
 		if value, ok := values[key]; ok {
 			if err := api.deps.Store.SetSetting(r.Context(), key, value); err != nil {
@@ -326,6 +348,10 @@ func (api *API) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respond.Error(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if strings.TrimSpace(req.NewPassword) == "" {
+		respond.Error(w, http.StatusBadRequest, "new_password is required")
 		return
 	}
 	hash, err := api.deps.Store.AdminPasswordHash(r.Context())
