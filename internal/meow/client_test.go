@@ -2,6 +2,8 @@ package meow
 
 import (
 	"context"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -55,3 +57,48 @@ func TestPushTreatsNon2xxAsError(t *testing.T) {
 		t.Fatalf("resp = %#v", resp)
 	}
 }
+
+func TestPushReturnsResponseReadErrorAndPartialBody(t *testing.T) {
+	readErr := errors.New("response body read failed")
+	client := New("https://meow.example.test", time.Second)
+	client.httpClient.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       &errorBody{data: []byte("partial body"), err: readErr},
+			Header:     make(http.Header),
+			Request:    &http.Request{},
+		}, nil
+	})
+
+	resp, err := client.Push(context.Background(), PushRequest{Nickname: "sunny", Msg: "message", MsgType: "text"})
+	if !errors.Is(err, readErr) {
+		t.Fatalf("Push error = %v, want %v", err, readErr)
+	}
+	if resp.StatusCode != http.StatusOK || resp.Body != "partial body" {
+		t.Fatalf("resp = %#v", resp)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+type errorBody struct {
+	data []byte
+	err  error
+}
+
+func (b *errorBody) Read(p []byte) (int, error) {
+	if len(b.data) == 0 {
+		return 0, b.err
+	}
+	n := copy(p, b.data)
+	b.data = b.data[n:]
+	return n, b.err
+}
+
+func (b *errorBody) Close() error { return nil }
+
+var _ io.ReadCloser = (*errorBody)(nil)

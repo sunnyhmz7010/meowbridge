@@ -81,8 +81,11 @@ func (c *Client) Push(ctx context.Context, req PushRequest) (PushResponse, error
 	}
 	defer httpResp.Body.Close()
 
-	respBody, _ := io.ReadAll(io.LimitReader(httpResp.Body, maxResponseBytes))
+	respBody, readErr := io.ReadAll(io.LimitReader(httpResp.Body, maxResponseBytes))
 	resp := PushResponse{StatusCode: httpResp.StatusCode, Body: string(respBody)}
+	if readErr != nil {
+		return resp, readErr
+	}
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 		return resp, fmt.Errorf("meow upstream returned %d", httpResp.StatusCode)
 	}
