@@ -26,3 +26,21 @@ func (s *Store) SetSetting(ctx context.Context, key, value string) error {
 	`, key, value, time.Now().UTC())
 	return err
 }
+
+func (s *Store) ListSettings(ctx context.Context) (map[string]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT key, value FROM settings ORDER BY key`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	values := map[string]string{}
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			return nil, err
+		}
+		values[key] = value
+	}
+	return values, rows.Err()
+}

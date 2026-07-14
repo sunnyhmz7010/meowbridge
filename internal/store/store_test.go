@@ -144,6 +144,138 @@ func TestGetSettingReturnsErrNotFound(t *testing.T) {
 	}
 }
 
+func TestEndpointCRUDKeepsMeowNicknameImmutable(t *testing.T) {
+	ctx := context.Background()
+	st, cleanup := openTestStore(t)
+	defer cleanup()
+
+	created, err := st.CreateEndpoint(ctx, EndpointInput{
+		Name:          "GitHub",
+		Token:         "token-1",
+		MeowNickname:  "sunny",
+		DefaultTitle:  "Default",
+		MsgType:       "markdown",
+		HTMLHeight:    300,
+		DefaultURL:    "https://example.test",
+		DefaultImgURL: "https://example.test/icon.png",
+		Active:        true,
+	})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+
+	updated, err := st.UpdateEndpoint(ctx, created.ID, EndpointUpdate{
+		Name:          "GitHub Updated",
+		DefaultTitle:  "Changed",
+		MsgType:       "text",
+		HTMLHeight:    200,
+		DefaultURL:    "",
+		DefaultImgURL: "",
+		Active:        true,
+	})
+	if err != nil {
+		t.Fatalf("UpdateEndpoint: %v", err)
+	}
+	if updated.MeowNickname != "sunny" {
+		t.Fatalf("MeowNickname changed to %q", updated.MeowNickname)
+	}
+
+	if err := st.SetEndpointActive(ctx, created.ID, false); err != nil {
+		t.Fatalf("SetEndpointActive: %v", err)
+	}
+	byToken, err := st.GetEndpointByToken(ctx, "token-1")
+	if err != nil {
+		t.Fatalf("GetEndpointByToken: %v", err)
+	}
+	if byToken.Active {
+		t.Fatal("expected inactive endpoint")
+	}
+
+	reset, err := st.ResetEndpointToken(ctx, created.ID, "token-2")
+	if err != nil {
+		t.Fatalf("ResetEndpointToken: %v", err)
+	}
+	if reset.Token != "token-2" {
+		t.Fatalf("Token = %q", reset.Token)
+	}
+}
+
+func TestEndpointMutationsReturnErrNotFound(t *testing.T) {
+	ctx := context.Background()
+	st, cleanup := openTestStore(t)
+	defer cleanup()
+
+	if _, err := st.GetEndpoint(ctx, 1); err != ErrNotFound {
+		t.Fatalf("GetEndpoint() error = %v, want ErrNotFound", err)
+	}
+	if _, err := st.GetEndpointByToken(ctx, "missing"); err != ErrNotFound {
+		t.Fatalf("GetEndpointByToken() error = %v, want ErrNotFound", err)
+	}
+	if _, err := st.UpdateEndpoint(ctx, 1, EndpointUpdate{}); err != ErrNotFound {
+		t.Fatalf("UpdateEndpoint() error = %v, want ErrNotFound", err)
+	}
+	if err := st.SetEndpointActive(ctx, 1, true); err != ErrNotFound {
+		t.Fatalf("SetEndpointActive() error = %v, want ErrNotFound", err)
+	}
+	if _, err := st.ResetEndpointToken(ctx, 1, "token"); err != ErrNotFound {
+		t.Fatalf("ResetEndpointToken() error = %v, want ErrNotFound", err)
+	}
+	if err := st.DeleteEndpoint(ctx, 1); err != ErrNotFound {
+		t.Fatalf("DeleteEndpoint() error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestListEndpointsOrdersNewestFirstAndDeleteRemovesEndpoint(t *testing.T) {
+	ctx := context.Background()
+	st, cleanup := openTestStore(t)
+	defer cleanup()
+
+	first, err := st.CreateEndpoint(ctx, EndpointInput{Name: "first", Token: "token-first", MeowNickname: "sunny", MsgType: "text"})
+	if err != nil {
+		t.Fatalf("CreateEndpoint first: %v", err)
+	}
+	second, err := st.CreateEndpoint(ctx, EndpointInput{Name: "second", Token: "token-second", MeowNickname: "sunny", MsgType: "text"})
+	if err != nil {
+		t.Fatalf("CreateEndpoint second: %v", err)
+	}
+
+	endpoints, err := st.ListEndpoints(ctx)
+	if err != nil {
+		t.Fatalf("ListEndpoints: %v", err)
+	}
+	if len(endpoints) != 2 || endpoints[0].ID != second.ID || endpoints[1].ID != first.ID {
+		t.Fatalf("ListEndpoints() = %#v", endpoints)
+	}
+
+	if err := st.DeleteEndpoint(ctx, first.ID); err != nil {
+		t.Fatalf("DeleteEndpoint: %v", err)
+	}
+	if _, err := st.GetEndpoint(ctx, first.ID); err != ErrNotFound {
+		t.Fatalf("GetEndpoint() error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestListSettingsReturnsValues(t *testing.T) {
+	ctx := context.Background()
+	st, cleanup := openTestStore(t)
+	defer cleanup()
+
+	if err := st.SetSetting(ctx, "alpha", "one"); err != nil {
+		t.Fatalf("SetSetting alpha: %v", err)
+	}
+	if err := st.SetSetting(ctx, "beta", "two"); err != nil {
+		t.Fatalf("SetSetting beta: %v", err)
+	}
+
+	values, err := st.ListSettings(ctx)
+	if err != nil {
+		t.Fatalf("ListSettings: %v", err)
+	}
+	if values["alpha"] != "one" || values["beta"] != "two" {
+		t.Fatalf("ListSettings() = %#v", values)
+	}
+}
+
 func openTestStore(t *testing.T) (*Store, func()) {
 	t.Helper()
 	ctx := context.Background()
