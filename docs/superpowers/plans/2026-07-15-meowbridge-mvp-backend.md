@@ -53,7 +53,6 @@ Create and maintain these files:
 - `internal/httpapi/admin.go`：Admin auth, endpoint, settings, log handlers.
 - `internal/httpapi/webhook.go`：Public Webhook and token verification handlers.
 - `internal/httpapi/types.go`：Request/response DTOs used by HTTP handlers.
-- `internal/testutil/testutil.go`：Temporary test database and helper assertions.
 - `README.md`：User-facing project overview, run instructions, API examples, GPL-3.0 license statement.
 - `AGENTS.md`：Keep existing project requirement notes; update only if implementation-specific local commands become necessary.
 
@@ -394,7 +393,6 @@ rtk git commit -m "初始化后端工程结构"
 - Create: `internal/store/store.go`
 - Create: `internal/store/bootstrap.go`
 - Create: `internal/store/settings.go`
-- Create: `internal/testutil/testutil.go`
 - Create: `internal/store/store_test.go`
 - Modify: `cmd/meowbridge/main.go`
 
