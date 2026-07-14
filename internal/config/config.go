@@ -30,9 +30,6 @@ func Load() (Config, error) {
 	if cfg.JWTSecret == "" {
 		return Config{}, errors.New("JWT_SECRET is required")
 	}
-	if cfg.MeowAPIBaseURL == "" {
-		return Config{}, errors.New("MEOW_API_BASE_URL is required")
-	}
 	return cfg, nil
 }
 

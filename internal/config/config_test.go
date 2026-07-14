@@ -7,7 +7,7 @@ import (
 
 func TestLoadDoesNotRequireAdminPasswordAfterBootstrap(t *testing.T) {
 	t.Setenv("ADMIN_PASSWORD", "")
-	t.Setenv("MEOW_API_BASE_URL", "https://push.example.test")
+	t.Setenv("MEOW_API_BASE_URL", "")
 	t.Setenv("JWT_SECRET", "jwt-secret")
 
 	cfg, err := Load()
@@ -16,6 +16,9 @@ func TestLoadDoesNotRequireAdminPasswordAfterBootstrap(t *testing.T) {
 	}
 	if cfg.AdminPassword != "" {
 		t.Fatalf("AdminPassword = %q", cfg.AdminPassword)
+	}
+	if cfg.MeowAPIBaseURL != "" {
+		t.Fatalf("MeowAPIBaseURL = %q", cfg.MeowAPIBaseURL)
 	}
 }
 

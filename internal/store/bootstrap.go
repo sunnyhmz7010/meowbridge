@@ -20,10 +20,20 @@ func (s *Store) Bootstrap(ctx context.Context, opts BootstrapOptions) error {
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&count); err != nil {
 		return err
 	}
-	if count == 0 {
-		if opts.AdminPassword == "" {
-			return errors.New("ADMIN_PASSWORD is required for initial bootstrap")
-		}
+	needsAdminPassword := count == 0
+	_, err := s.GetSetting(ctx, "meow_api_base_url")
+	needsMeowAPIBaseURL := errors.Is(err, ErrNotFound)
+	if err != nil && !needsMeowAPIBaseURL {
+		return err
+	}
+	if needsAdminPassword && opts.AdminPassword == "" {
+		return errors.New("ADMIN_PASSWORD is required for initial bootstrap")
+	}
+	if needsMeowAPIBaseURL && opts.MeowAPIBaseURL == "" {
+		return errors.New("MEOW_API_BASE_URL is required for initial bootstrap")
+	}
+
+	if needsAdminPassword {
 		hash, err := bcrypt.GenerateFromPassword([]byte(opts.AdminPassword), bcrypt.DefaultCost)
 		if err != nil {
 			return err
