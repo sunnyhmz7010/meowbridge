@@ -27,9 +27,6 @@ func Load() (Config, error) {
 		LogRetentionDays: intEnvOrDefault("LOG_RETENTION_DAYS", 14),
 		MeowTimeout:      10 * time.Second,
 	}
-	if cfg.AdminPassword == "" {
-		return Config{}, errors.New("ADMIN_PASSWORD is required")
-	}
 	if cfg.JWTSecret == "" {
 		return Config{}, errors.New("JWT_SECRET is required")
 	}

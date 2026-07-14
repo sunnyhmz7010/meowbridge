@@ -5,13 +5,17 @@ import (
 	"time"
 )
 
-func TestLoadRequiresAdminPasswordAndMeowBaseURL(t *testing.T) {
+func TestLoadDoesNotRequireAdminPasswordAfterBootstrap(t *testing.T) {
 	t.Setenv("ADMIN_PASSWORD", "")
-	t.Setenv("MEOW_API_BASE_URL", "")
+	t.Setenv("MEOW_API_BASE_URL", "https://push.example.test")
+	t.Setenv("JWT_SECRET", "jwt-secret")
 
-	_, err := Load()
-	if err == nil {
-		t.Fatal("expected missing environment error")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.AdminPassword != "" {
+		t.Fatalf("AdminPassword = %q", cfg.AdminPassword)
 	}
 }
 
