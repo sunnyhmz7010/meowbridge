@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,6 +68,173 @@ func TestWebhookReturns404ForUnknownToken(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status = %d", rr.Code)
 	}
+}
+
+func TestWebhookTextPlainWithCharsetUsesQueryOverride(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	endpoint, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Text", Token: "text-token", MeowNickname: "sunny", MsgType: "text", HTMLHeight: 200, Active: true})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+
+	var received meow.PushRequest
+	var receivedMsgType string
+	meowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatalf("decode push request: %v", err)
+		}
+		receivedMsgType = r.URL.Query().Get("msgType")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer meowServer.Close()
+
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "secret", MeowTimeout: time.Second}, MeowClient: meow.New(meowServer.URL, time.Second)})
+	req := httptest.NewRequest(http.MethodPost, "/webhook/text-token?msgType=markdown", strings.NewReader("plain message"))
+	req.Header.Set("Content-Type", "TEXT/PLAIN; charset=utf-8")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	if received.Msg != "plain message" || receivedMsgType != "markdown" {
+		t.Fatalf("push request = %#v", received)
+	}
+
+	logs, err := st.ListPushLogs(ctx)
+	if err != nil {
+		t.Fatalf("ListPushLogs: %v", err)
+	}
+	if len(logs) != 1 || logs[0].EndpointID != endpoint.ID || logs[0].RequestPayload != "plain message" {
+		t.Fatalf("logs = %#v", logs)
+	}
+}
+
+func TestWebhookLogsEntireLargeTextPayload(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	_, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Large", Token: "large-token", MeowNickname: "sunny", MsgType: "text", HTMLHeight: 200, Active: true})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+
+	meowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer meowServer.Close()
+
+	payload := strings.Repeat("x", 1024*1024+1)
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "secret", MeowTimeout: time.Second}, MeowClient: meow.New(meowServer.URL, time.Second)})
+	req := httptest.NewRequest(http.MethodPost, "/webhook/large-token", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "text/plain")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	logs, err := st.ListPushLogs(ctx)
+	if err != nil {
+		t.Fatalf("ListPushLogs: %v", err)
+	}
+	if len(logs) != 1 || logs[0].RequestPayload != payload {
+		t.Fatalf("logged payload length = %d, want %d", len(logs[0].RequestPayload), len(payload))
+	}
+}
+
+func TestWebhookMeowFailureReturns502AndWritesFailureLog(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	_, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Failure", Token: "failure-token", MeowNickname: "sunny", MsgType: "text", HTMLHeight: 200, Active: true})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+
+	meowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "meow unavailable", http.StatusServiceUnavailable)
+	}))
+	defer meowServer.Close()
+
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "secret", MeowTimeout: time.Second}, MeowClient: meow.New(meowServer.URL, time.Second)})
+	req := httptest.NewRequest(http.MethodPost, "/webhook/failure-token", strings.NewReader("failed push"))
+	req.Header.Set("Content-Type", "text/plain")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	logs, err := st.ListPushLogs(ctx)
+	if err != nil {
+		t.Fatalf("ListPushLogs: %v", err)
+	}
+	if len(logs) != 1 || logs[0].Success || logs[0].MeowStatusCode != http.StatusServiceUnavailable || logs[0].RequestPayload != "failed push" {
+		t.Fatalf("logs = %#v", logs)
+	}
+}
+
+func TestWebhookReturns500WhenSuccessLogWriteFails(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	_, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Log failure", Token: "log-failure-token", MeowNickname: "sunny", MsgType: "text", HTMLHeight: 200, Active: true})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+
+	meowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer meowServer.Close()
+
+	router := NewRouter(Dependencies{Store: failingPushLogStore{Store: st}, Config: config.Config{JWTSecret: "secret", MeowTimeout: time.Second}, MeowClient: meow.New(meowServer.URL, time.Second)})
+	req := httptest.NewRequest(http.MethodPost, "/webhook/log-failure-token", strings.NewReader("log failure"))
+	req.Header.Set("Content-Type", "text/plain")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if body["ok"] != false {
+		t.Fatalf("body = %#v", body)
+	}
+}
+
+func TestWebhookMeowFailureReturns502WhenLogWriteFails(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	_, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Both failures", Token: "both-failures-token", MeowNickname: "sunny", MsgType: "text", HTMLHeight: 200, Active: true})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+
+	meowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "meow unavailable", http.StatusServiceUnavailable)
+	}))
+	defer meowServer.Close()
+
+	router := NewRouter(Dependencies{Store: failingPushLogStore{Store: st}, Config: config.Config{JWTSecret: "secret", MeowTimeout: time.Second}, MeowClient: meow.New(meowServer.URL, time.Second)})
+	req := httptest.NewRequest(http.MethodPost, "/webhook/both-failures-token", strings.NewReader("failed push"))
+	req.Header.Set("Content-Type", "text/plain")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+}
+
+type failingPushLogStore struct {
+	*store.Store
+}
+
+func (failingPushLogStore) CreatePushLog(context.Context, store.PushLogInput) (int64, error) {
+	return 0, errors.New("push log unavailable")
 }
 
 func newHTTPTestStore(t *testing.T) *store.Store {

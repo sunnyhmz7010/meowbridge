@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"strconv"
 	"strings"
@@ -41,7 +42,7 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(io.LimitReader(r.Body, 1024*1024))
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		api.writeWebhookLog(r, ep, webhook.ParsedMessage{}, webhook.FinalMessage{}, 0, "", false, "failed to read request body", "")
 		respond.Error(w, http.StatusBadRequest, "failed to read request body")
@@ -92,13 +93,17 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadGateway, pushErr.Error())
 		return
 	}
-	logID := api.writeWebhookLog(r, ep, parsed, final, meowResp.StatusCode, meowResp.Body, true, "", string(body))
+	logID, err := api.writeWebhookLog(r, ep, parsed, final, meowResp.StatusCode, meowResp.Body, true, "", string(body))
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to create push log")
+		return
+	}
 	respond.WebhookOK(w, logID)
 }
 
 func (api *API) parseWebhookRequest(r *http.Request, body []byte) (webhook.ParsedMessage, int, error) {
-	contentType := r.Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "text/plain") {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err == nil && mediaType == "text/plain" {
 		return webhook.ParsedMessage{SourceType: "text_plain", Msg: strings.TrimSpace(string(body)), MsgType: "text"}, http.StatusOK, nil
 	}
 	parsed, err := webhook.Parse(webhook.ParseInput{Headers: r.Header, Body: body})
@@ -119,10 +124,10 @@ func queryOverrides(r *http.Request) webhook.QueryOverrides {
 	}
 }
 
-func (api *API) writeWebhookLog(r *http.Request, ep store.Endpoint, parsed webhook.ParsedMessage, final webhook.FinalMessage, statusCode int, responseBody string, success bool, errorMessage string, payload string) int64 {
+func (api *API) writeWebhookLog(r *http.Request, ep store.Endpoint, parsed webhook.ParsedMessage, final webhook.FinalMessage, statusCode int, responseBody string, success bool, errorMessage string, payload string) (int64, error) {
 	headers, _ := json.Marshal(r.Header)
 	query, _ := json.Marshal(r.URL.Query())
-	id, _ := api.deps.Store.CreatePushLog(r.Context(), store.PushLogInput{
+	return api.deps.Store.CreatePushLog(r.Context(), store.PushLogInput{
 		EndpointID:       ep.ID,
 		EndpointName:     ep.Name,
 		Token:            ep.Token,
@@ -139,5 +144,4 @@ func (api *API) writeWebhookLog(r *http.Request, ep store.Endpoint, parsed webho
 		Success:          success,
 		ErrorMessage:     errorMessage,
 	})
-	return id
 }
