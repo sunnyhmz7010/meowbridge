@@ -6,7 +6,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/v/tag/sunnyhmz7010/meowbridge?label=Release&color=3b82f6" alt="Release" />
   <img src="https://img.shields.io/github/license/sunnyhmz7010/meowbridge?color=10b981" alt="License" />
-  <img src="https://img.shields.io/badge/Go-1.23%2B-00ADD8" alt="Go" />
+  <a href="https://github.com/sunnyhmz7010/meowbridge/actions/workflows/ci.yaml"><img src="https://img.shields.io/github/actions/workflow/status/sunnyhmz7010/meowbridge/ci.yaml?branch=main&label=CI" alt="CI" /></a>
 </p>
 <p align="center">
   <a href="https://github.com/sunnyhmz7010/meowbridge/issues">反馈问题</a> · <a href="https://github.com/sunnyhmz7010/meowbridge/archive/refs/heads/main.zip">下载源码</a>
@@ -16,7 +16,7 @@
 
 ## ✨ 为什么做这个应用
 
-MeoW Push 只有 nickname 作为入口标识，多场景共用时容易混淆，也不利于隔离泄露风险。meowbridge 提供独立 token 入口，把 GitHub、Grafana、Prometheus、Jenkins、Zabbix、Gotify、Emby 等常见 Webhook 自动解析并转发到指定 MeoW nickname。
+MeoW Push 只有昵称作为入口标识，多场景共用时容易混淆，也不利于隔离泄露风险。meowbridge 提供独立 token 入口，把 Webhook 自动解析并转发到指定 MeoW 。
 
 ## 🚀 核心能力
 
@@ -69,7 +69,7 @@ docker run -d \
 
 ### Release 下载
 
-版本发布页提供 Linux `amd64` 和 `arm64` 二进制包。下载后解压并按环境变量说明启动即可。
+版本发布页提供 Linux `amd64` 和 `arm64` 二进制包，以及 `checksums.txt` 校验文件。下载后解压并按环境变量说明启动即可。
 
 ## 📖 使用说明
 
