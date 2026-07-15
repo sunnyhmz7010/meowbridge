@@ -19,7 +19,7 @@ import (
 func TestAdminLoginAndEndpointCRUD(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
@@ -52,6 +52,9 @@ func TestAdminLoginAndEndpointCRUD(t *testing.T) {
 	if createRR.Code != http.StatusOK {
 		t.Fatalf("create status = %d body = %s", createRR.Code, createRR.Body.String())
 	}
+	if !strings.Contains(createRR.Body.String(), `"meow_nickname"`) || strings.Contains(createRR.Body.String(), `"MeowNickname"`) {
+		t.Fatalf("create response does not use stable snake_case JSON: %s", createRR.Body.String())
+	}
 
 	listReq := httptest.NewRequest(http.MethodGet, "/api/admin/endpoints", nil)
 	listReq.Header.Set("Authorization", "Bearer "+loginBody.Data.Token)
@@ -59,6 +62,9 @@ func TestAdminLoginAndEndpointCRUD(t *testing.T) {
 	router.ServeHTTP(listRR, listReq)
 	if listRR.Code != http.StatusOK {
 		t.Fatalf("list status = %d", listRR.Code)
+	}
+	if !strings.Contains(listRR.Body.String(), `"default_title"`) || strings.Contains(listRR.Body.String(), `"DefaultTitle"`) {
+		t.Fatalf("list response does not use stable snake_case JSON: %s", listRR.Body.String())
 	}
 }
 
@@ -78,7 +84,7 @@ func TestAdminRoutesRequireJWT(t *testing.T) {
 func TestAdminEndpointDefaultsActiveAndPreservesMeowNickname(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
@@ -126,7 +132,7 @@ func TestAdminEndpointDefaultsActiveAndPreservesMeowNickname(t *testing.T) {
 func TestAdminSetEndpointActiveRequiresActiveField(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	endpoint, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Active", Token: "active-token", MeowNickname: "sunny", MsgType: "text", Active: true})
@@ -154,7 +160,7 @@ func TestAdminSetEndpointActiveRequiresActiveField(t *testing.T) {
 func TestAdminPushLogListOmitsSensitiveFields(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	if _, err := st.CreatePushLog(ctx, store.PushLogInput{Token: "secret-token", RequestHeaders: "Authorization: secret", RequestPayload: "full payload", ParsedMsg: strings.Repeat("x", 201)}); err != nil {
@@ -178,7 +184,7 @@ func TestAdminPushLogListOmitsSensitiveFields(t *testing.T) {
 func TestAdminMissingPushLogReturns404(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
@@ -195,7 +201,7 @@ func TestAdminMissingPushLogReturns404(t *testing.T) {
 func TestAdminSettingsAndPasswordChangesPersist(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
@@ -208,11 +214,12 @@ func TestAdminSettingsAndPasswordChangesPersist(t *testing.T) {
 	if settingsRR.Code != http.StatusOK {
 		t.Fatalf("settings status = %d body = %s", settingsRR.Code, settingsRR.Body.String())
 	}
-	for key, want := range map[string]string{"meow_api_base_url": "https://new-meow.example.test", "log_retention_days": "30"} {
-		got, err := st.GetSetting(ctx, key)
-		if err != nil || got != want {
-			t.Fatalf("GetSetting(%s) = %q, %v; want %q", key, got, err, want)
-		}
+	got, err := st.GetSetting(ctx, "log_retention_days")
+	if err != nil || got != "30" {
+		t.Fatalf("log_retention_days = %q, %v; want 30", got, err)
+	}
+	if _, err := st.GetSetting(ctx, "meow_api_base_url"); err != store.ErrNotFound {
+		t.Fatalf("meow_api_base_url error = %v, want ErrNotFound", err)
 	}
 
 	passwordReq := httptest.NewRequest(http.MethodPost, "/api/admin/change-password", bytes.NewBufferString(`{"old_password":"admin-password","new_password":"new-password"}`))
@@ -231,72 +238,10 @@ func TestAdminSettingsAndPasswordChangesPersist(t *testing.T) {
 	}
 }
 
-func TestAdminSettingsUpdateChangesNextWebhookPushTarget(t *testing.T) {
-	ctx := context.Background()
-	st := newHTTPTestStore(t)
-	firstCalls := 0
-	firstServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		firstCalls++
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer firstServer.Close()
-	secondCalls := 0
-	secondServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		secondCalls++
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer secondServer.Close()
-
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: firstServer.URL, LogRetentionDays: 14}); err != nil {
-		t.Fatalf("Bootstrap: %v", err)
-	}
-	_, err := st.CreateEndpoint(ctx, store.EndpointInput{Name: "Dynamic", Token: "dynamic-token", MeowNickname: "sunny", MsgType: "text", HTMLHeight: 200, Active: true})
-	if err != nil {
-		t.Fatalf("CreateEndpoint: %v", err)
-	}
-	router := NewRouter(Dependencies{
-		Store:  st,
-		Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second},
-		MeowClient: meow.NewWithBaseURLProvider(func(ctx context.Context) (string, error) {
-			return st.GetSetting(ctx, "meow_api_base_url")
-		}, time.Second),
-	})
-
-	postWebhook := func() {
-		t.Helper()
-		req := httptest.NewRequest(http.MethodPost, "/webhook/dynamic-token", strings.NewReader("dynamic push"))
-		req.Header.Set("Content-Type", "text/plain")
-		rr := httptest.NewRecorder()
-		router.ServeHTTP(rr, req)
-		if rr.Code != http.StatusOK {
-			t.Fatalf("webhook status = %d body = %s", rr.Code, rr.Body.String())
-		}
-	}
-
-	postWebhook()
-	token := adminToken(t, router)
-	settingsBody, err := json.Marshal(map[string]string{"meow_api_base_url": secondServer.URL})
-	if err != nil {
-		t.Fatalf("Marshal: %v", err)
-	}
-	settingsReq := httptest.NewRequest(http.MethodPut, "/api/admin/settings", bytes.NewReader(settingsBody))
-	settingsReq.Header.Set("Authorization", "Bearer "+token)
-	settingsRR := httptest.NewRecorder()
-	router.ServeHTTP(settingsRR, settingsReq)
-	if settingsRR.Code != http.StatusOK {
-		t.Fatalf("settings status = %d body = %s", settingsRR.Code, settingsRR.Body.String())
-	}
-	postWebhook()
-
-	if firstCalls != 1 || secondCalls != 1 {
-		t.Fatalf("push calls: first = %d, second = %d", firstCalls, secondCalls)
-	}
-}
-
 func TestAdminRejectsInvalidRetentionDaysAndEmptyNewPassword(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: "https://meow.example.test", LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
@@ -323,35 +268,54 @@ func TestAdminRejectsInvalidRetentionDaysAndEmptyNewPassword(t *testing.T) {
 	}
 }
 
-func TestAdminRejectsInvalidMeowAPIBaseURL(t *testing.T) {
+func TestAdminSettingsIgnoresMeowAPIBaseURL(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)
-	const originalURL = "https://meow.example.test"
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: originalURL, LogRetentionDays: 14}); err != nil {
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
 	token := adminToken(t, router)
 
-	for _, value := range []string{"", "/relative", "ftp://meow.example.test", "https:///missing-host"} {
-		t.Run(value, func(t *testing.T) {
-			body, err := json.Marshal(map[string]string{"meow_api_base_url": value})
-			if err != nil {
-				t.Fatalf("Marshal: %v", err)
-			}
-			req := httptest.NewRequest(http.MethodPut, "/api/admin/settings", bytes.NewReader(body))
-			req.Header.Set("Authorization", "Bearer "+token)
-			rr := httptest.NewRecorder()
-			router.ServeHTTP(rr, req)
+	body, err := json.Marshal(map[string]string{"meow_api_base_url": "https://new-meow.example.test"})
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPut, "/api/admin/settings", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
 
-			if rr.Code != http.StatusBadRequest {
-				t.Fatalf("value %q status = %d body = %s", value, rr.Code, rr.Body.String())
-			}
-			got, err := st.GetSetting(ctx, "meow_api_base_url")
-			if err != nil || got != originalURL {
-				t.Fatalf("stored URL = %q, %v; want %q", got, err, originalURL)
-			}
-		})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	if _, err := st.GetSetting(ctx, "meow_api_base_url"); err != store.ErrNotFound {
+		t.Fatalf("meow_api_base_url error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestAdminSettingsDoesNotExposeLegacyMeowAPIBaseURL(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	if err := st.SetSetting(ctx, "meow_api_base_url", "https://legacy.example.test"); err != nil {
+		t.Fatalf("SetSetting legacy: %v", err)
+	}
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+	token := adminToken(t, router)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/settings", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	if strings.Contains(rr.Body.String(), "meow_api_base_url") || strings.Contains(rr.Body.String(), "legacy.example.test") {
+		t.Fatalf("settings response exposed legacy MeoW URL: %s", rr.Body.String())
 	}
 }
 

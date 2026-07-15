@@ -25,9 +25,7 @@ func TestBootstrapCreatesAdminAndSettingsOnce(t *testing.T) {
 	defer cleanup()
 
 	err := st.Bootstrap(ctx, BootstrapOptions{
-		AdminPassword:    "first-password",
-		MeowAPIBaseURL:   "https://meow.example.test",
-		LogRetentionDays: 14,
+		AdminPassword: "first-password",
 	})
 	if err != nil {
 		t.Fatalf("Bootstrap first: %v", err)
@@ -48,14 +46,6 @@ func TestBootstrapCreatesAdminAndSettingsOnce(t *testing.T) {
 		t.Fatalf("adminCount = %d", adminCount)
 	}
 
-	baseURL, err := st.GetSetting(ctx, "meow_api_base_url")
-	if err != nil {
-		t.Fatalf("GetSetting: %v", err)
-	}
-	if baseURL != "https://meow.example.test" {
-		t.Fatalf("baseURL = %q", baseURL)
-	}
-
 	retentionDays, err := st.GetSetting(ctx, "log_retention_days")
 	if err != nil {
 		t.Fatalf("GetSetting log_retention_days: %v", err)
@@ -71,7 +61,6 @@ func TestBootstrapRequiresAdminPasswordForInitialAdmin(t *testing.T) {
 	defer cleanup()
 
 	err := st.Bootstrap(ctx, BootstrapOptions{
-		MeowAPIBaseURL:   "https://meow.example.test",
 		LogRetentionDays: 14,
 	})
 	if err == nil {
@@ -84,32 +73,6 @@ func TestBootstrapRequiresAdminPasswordForInitialAdmin(t *testing.T) {
 	}
 	if adminCount != 0 {
 		t.Fatalf("adminCount = %d", adminCount)
-	}
-}
-
-func TestBootstrapRequiresMeowAPIBaseURLForInitialSetting(t *testing.T) {
-	ctx := context.Background()
-	st, cleanup := openTestStore(t)
-	defer cleanup()
-
-	err := st.Bootstrap(ctx, BootstrapOptions{
-		AdminPassword:    "first-password",
-		LogRetentionDays: 14,
-	})
-	if err == nil {
-		t.Fatal("Bootstrap() error = nil")
-	}
-
-	var adminCount int
-	if err := st.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&adminCount); err != nil {
-		t.Fatalf("count admins: %v", err)
-	}
-	if adminCount != 0 {
-		t.Fatalf("adminCount = %d", adminCount)
-	}
-
-	if _, err := st.GetSetting(ctx, "meow_api_base_url"); err != ErrNotFound {
-		t.Fatalf("GetSetting(meow_api_base_url) error = %v, want ErrNotFound", err)
 	}
 }
 

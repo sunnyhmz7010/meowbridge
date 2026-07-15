@@ -94,16 +94,21 @@ describe('apiClient', () => {
 })
 
 describe('normalizeEndpoint', () => {
-  it('normalizes current Go struct JSON field names', () => {
+  it('normalizes stable snake_case JSON field names', () => {
     expect(
       normalizeEndpoint({
-        ID: 7,
-        Name: 'Build',
-        Token: 'token-1',
-        MeowNickname: 'sunny',
-        MsgType: 'markdown',
-        HTMLHeight: 300,
-        Active: true,
+        id: 7,
+        name: 'Build',
+        token: 'token-1',
+        meow_nickname: 'sunny',
+        default_title: '',
+        msg_type: 'markdown',
+        html_height: 300,
+        default_url: '',
+        default_img_url: '',
+        active: true,
+        created_at: '',
+        updated_at: '',
       }),
     ).toMatchObject({
       id: 7,

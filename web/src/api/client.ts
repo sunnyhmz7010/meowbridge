@@ -1,5 +1,4 @@
 import type {
-  Endpoint,
   EndpointInput,
   EndpointUpdate,
   EndpointView,
@@ -32,20 +31,20 @@ export function setUnauthorizedHandler(handler: () => void): void {
   unauthorizedHandler = handler
 }
 
-export function normalizeEndpoint(input: Endpoint): EndpointView {
+export function normalizeEndpoint(input: EndpointView): EndpointView {
   return {
-    id: input.id ?? input.ID ?? 0,
-    name: input.name ?? input.Name ?? '',
-    token: input.token ?? input.Token ?? '',
-    meow_nickname: input.meow_nickname ?? input.MeowNickname ?? '',
-    default_title: input.default_title ?? input.DefaultTitle ?? '',
-    msg_type: input.msg_type ?? input.MsgType ?? 'text',
-    html_height: input.html_height ?? input.HTMLHeight ?? 200,
-    default_url: input.default_url ?? input.DefaultURL ?? '',
-    default_img_url: input.default_img_url ?? input.DefaultImgURL ?? '',
-    active: input.active ?? input.Active ?? false,
-    created_at: input.created_at ?? input.CreatedAt ?? '',
-    updated_at: input.updated_at ?? input.UpdatedAt ?? '',
+    id: input.id,
+    name: input.name,
+    token: input.token,
+    meow_nickname: input.meow_nickname,
+    default_title: input.default_title,
+    msg_type: input.msg_type,
+    html_height: input.html_height,
+    default_url: input.default_url,
+    default_img_url: input.default_img_url,
+    active: input.active,
+    created_at: input.created_at,
+    updated_at: input.updated_at,
   }
 }
 
@@ -58,23 +57,23 @@ export function normalizePushLog(input: PushLog): Required<PushLogListItem> & {
   meow_response_body: string
 } {
   return {
-    id: input.id ?? input.ID ?? 0,
-    endpoint_id: input.endpoint_id ?? input.EndpointID ?? 0,
-    endpoint_name: input.endpoint_name ?? input.EndpointName ?? '',
-    token: input.token ?? input.Token ?? '',
-    source_type: input.source_type ?? input.SourceType ?? '',
-    request_method: input.request_method ?? input.RequestMethod ?? '',
-    request_headers: input.request_headers ?? input.RequestHeaders ?? '',
-    request_query: input.request_query ?? input.RequestQuery ?? '',
-    request_payload: input.request_payload ?? input.RequestPayload ?? '',
-    parsed_title: input.parsed_title ?? input.ParsedTitle ?? '',
-    parsed_msg: input.parsed_msg ?? input.ParsedMsg ?? '',
-    parsed_msg_type: input.parsed_msg_type ?? input.ParsedMsgType ?? '',
-    meow_status_code: input.meow_status_code ?? input.MeowStatusCode ?? 0,
-    meow_response_body: input.meow_response_body ?? input.MeowResponseBody ?? '',
-    success: input.success ?? input.Success ?? false,
-    error_message: input.error_message ?? input.ErrorMessage ?? '',
-    created_at: input.created_at ?? input.CreatedAt ?? '',
+    id: input.id ?? 0,
+    endpoint_id: input.endpoint_id ?? 0,
+    endpoint_name: input.endpoint_name ?? '',
+    token: input.token ?? '',
+    source_type: input.source_type ?? '',
+    request_method: input.request_method ?? '',
+    request_headers: input.request_headers ?? '',
+    request_query: input.request_query ?? '',
+    request_payload: input.request_payload ?? '',
+    parsed_title: input.parsed_title ?? '',
+    parsed_msg: input.parsed_msg ?? '',
+    parsed_msg_type: input.parsed_msg_type ?? '',
+    meow_status_code: input.meow_status_code ?? 0,
+    meow_response_body: input.meow_response_body ?? '',
+    success: input.success ?? false,
+    error_message: input.error_message ?? '',
+    created_at: input.created_at ?? '',
   }
 }
 
@@ -129,15 +128,15 @@ export const apiClient = {
     return data.token
   },
   async listEndpoints(): Promise<EndpointView[]> {
-    const data = await request<Endpoint[]>('/api/admin/endpoints')
+    const data = await request<EndpointView[]>('/api/admin/endpoints')
     return data.map(normalizeEndpoint)
   },
   async getEndpoint(id: number): Promise<EndpointView> {
-    return normalizeEndpoint(await request<Endpoint>(`/api/admin/endpoints/${id}`))
+    return normalizeEndpoint(await request<EndpointView>(`/api/admin/endpoints/${id}`))
   },
   async createEndpoint(input: EndpointInput): Promise<EndpointView> {
     return normalizeEndpoint(
-      await request<Endpoint>('/api/admin/endpoints', {
+      await request<EndpointView>('/api/admin/endpoints', {
         method: 'POST',
         body: JSON.stringify(input),
       }),
@@ -145,7 +144,7 @@ export const apiClient = {
   },
   async updateEndpoint(id: number, input: EndpointUpdate): Promise<EndpointView> {
     return normalizeEndpoint(
-      await request<Endpoint>(`/api/admin/endpoints/${id}`, {
+      await request<EndpointView>(`/api/admin/endpoints/${id}`, {
         method: 'PUT',
         body: JSON.stringify(input),
       }),
@@ -156,7 +155,7 @@ export const apiClient = {
   },
   async resetEndpointToken(id: number): Promise<EndpointView> {
     return normalizeEndpoint(
-      await request<Endpoint>(`/api/admin/endpoints/${id}/reset-token`, { method: 'POST' }),
+      await request<EndpointView>(`/api/admin/endpoints/${id}/reset-token`, { method: 'POST' }),
     )
   },
   async setEndpointActive(id: number, active: boolean): Promise<{ active: boolean }> {

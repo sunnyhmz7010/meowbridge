@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/sunnyhmz7010/meowbridge/internal/meow"
 	"github.com/sunnyhmz7010/meowbridge/internal/store"
 )
 
@@ -32,21 +30,14 @@ func TestNewHTTPServerConfiguresTimeouts(t *testing.T) {
 	}
 }
 
-func TestNewMeowClientUsesPersistedSettingAfterBootstrap(t *testing.T) {
-	ctx := context.Background()
-	firstCalls := 0
-	firstServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		firstCalls++
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer firstServer.Close()
-	secondCalls := 0
-	secondServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		secondCalls++
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer secondServer.Close()
+func TestHTTPAddrFromPortAddsColon(t *testing.T) {
+	if got := httpAddrFromPort("9090"); got != ":9090" {
+		t.Fatalf("httpAddrFromPort() = %q", got)
+	}
+}
 
+func TestEnsureJWTSecretUsesProvidedValueAndPersistsIt(t *testing.T) {
+	ctx := context.Background()
 	st, err := store.Open(ctx, ":memory:")
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -55,18 +46,43 @@ func TestNewMeowClientUsesPersistedSettingAfterBootstrap(t *testing.T) {
 	if err := st.Migrate(ctx); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", MeowAPIBaseURL: firstServer.URL, LogRetentionDays: 14}); err != nil {
-		t.Fatalf("Bootstrap first: %v", err)
+
+	secret, err := ensureJWTSecret(ctx, st, "provided-secret")
+	if err != nil {
+		t.Fatalf("ensureJWTSecret: %v", err)
 	}
-	if err := st.Bootstrap(ctx, store.BootstrapOptions{MeowAPIBaseURL: secondServer.URL, LogRetentionDays: 14}); err != nil {
-		t.Fatalf("Bootstrap second: %v", err)
+	if secret != "provided-secret" {
+		t.Fatalf("secret = %q", secret)
+	}
+	stored, err := st.GetSetting(ctx, "jwt_secret")
+	if err != nil || stored != "provided-secret" {
+		t.Fatalf("stored jwt_secret = %q, %v", stored, err)
+	}
+}
+
+func TestEnsureJWTSecretGeneratesAndReusesPersistedValue(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.Open(ctx, ":memory:")
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatalf("Migrate: %v", err)
 	}
 
-	client := newMeowClient(st, time.Second)
-	if _, err := client.Push(ctx, meow.PushRequest{Nickname: "sunny", Title: "test", Msg: "persisted", MsgType: "text"}); err != nil {
-		t.Fatalf("Push: %v", err)
+	first, err := ensureJWTSecret(ctx, st, "")
+	if err != nil {
+		t.Fatalf("ensureJWTSecret first: %v", err)
 	}
-	if firstCalls != 1 || secondCalls != 0 {
-		t.Fatalf("push calls: persisted = %d, env = %d", firstCalls, secondCalls)
+	if len(first) < 32 {
+		t.Fatalf("generated secret too short: %q", first)
+	}
+	second, err := ensureJWTSecret(ctx, st, "")
+	if err != nil {
+		t.Fatalf("ensureJWTSecret second: %v", err)
+	}
+	if second != first {
+		t.Fatalf("second secret = %q, want %q", second, first)
 	}
 }

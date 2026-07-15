@@ -10,7 +10,10 @@ import (
 	"github.com/sunnyhmz7010/meowbridge/internal/httpapi"
 	"github.com/sunnyhmz7010/meowbridge/internal/meow"
 	"github.com/sunnyhmz7010/meowbridge/internal/store"
+	"github.com/sunnyhmz7010/meowbridge/internal/token"
 )
+
+const meowAPIBaseURL = "https://api.chuckfang.com"
 
 func main() {
 	ctx := context.Background()
@@ -30,32 +33,64 @@ func main() {
 	}
 	if err := st.Bootstrap(ctx, store.BootstrapOptions{
 		AdminPassword:    cfg.AdminPassword,
-		MeowAPIBaseURL:   cfg.MeowAPIBaseURL,
 		LogRetentionDays: cfg.LogRetentionDays,
 	}); err != nil {
 		log.Fatal(err)
 	}
+	jwtSecret, err := ensureJWTSecret(ctx, st, cfg.JWTSecret)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cfg.JWTSecret = jwtSecret
 
-	meowClient := newMeowClient(st, cfg.MeowTimeout)
+	meowClient := newMeowClient(cfg.MeowTimeout)
 	router := httpapi.NewRouter(httpapi.Dependencies{
 		Store:      st,
 		Config:     cfg,
 		MeowClient: meowClient,
 	})
-	log.Printf("meowbridge starting on %s", cfg.HTTPAddr)
-	if err := newHTTPServer(cfg.HTTPAddr, router).ListenAndServe(); err != nil {
+	addr := httpAddrFromPort(cfg.HTTPPort)
+	log.Printf("meowbridge starting on %s", addr)
+	if err := newHTTPServer(addr, router).ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-type meowSettingStore interface {
+type settingStore interface {
 	GetSetting(ctx context.Context, key string) (string, error)
+	SetSetting(ctx context.Context, key, value string) error
 }
 
-func newMeowClient(st meowSettingStore, timeout time.Duration) *meow.Client {
-	return meow.NewWithBaseURLProvider(func(ctx context.Context) (string, error) {
-		return st.GetSetting(ctx, "meow_api_base_url")
-	}, timeout)
+func newMeowClient(timeout time.Duration) *meow.Client {
+	return meow.New(meowAPIBaseURL, timeout)
+}
+
+func httpAddrFromPort(port string) string {
+	return ":" + port
+}
+
+func ensureJWTSecret(ctx context.Context, st settingStore, configured string) (string, error) {
+	if configured != "" {
+		if err := st.SetSetting(ctx, "jwt_secret", configured); err != nil {
+			return "", err
+		}
+		return configured, nil
+	}
+	persisted, err := st.GetSetting(ctx, "jwt_secret")
+	if err == nil {
+		return persisted, nil
+	}
+	if err != store.ErrNotFound {
+		return "", err
+	}
+	generated, err := token.Generate()
+	if err != nil {
+		return "", err
+	}
+	if err := st.SetSetting(ctx, "jwt_secret", generated); err != nil {
+		return "", err
+	}
+	return generated, nil
 }
 
 func newHTTPServer(addr string, handler http.Handler) *http.Server {

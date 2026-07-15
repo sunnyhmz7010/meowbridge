@@ -15,12 +15,10 @@ const passwordConfirmOpen = ref(false)
 const error = ref('')
 
 const settings = reactive({
-  meow_api_base_url: '',
   log_retention_days: '14',
 })
 
 const original = reactive({
-  meow_api_base_url: '',
   log_retention_days: '14',
 })
 
@@ -30,9 +28,7 @@ const passwordForm = reactive({
 })
 
 function applySettings(values: Record<string, string>): void {
-  settings.meow_api_base_url = values.meow_api_base_url ?? ''
   settings.log_retention_days = values.log_retention_days ?? '14'
-  original.meow_api_base_url = settings.meow_api_base_url
   original.log_retention_days = settings.log_retention_days
 }
 
@@ -50,9 +46,6 @@ async function load(): Promise<void> {
 
 async function saveSettings(): Promise<void> {
   const changes: Record<string, string> = {}
-  if (settings.meow_api_base_url !== original.meow_api_base_url) {
-    changes.meow_api_base_url = settings.meow_api_base_url
-  }
   if (settings.log_retention_days !== original.log_retention_days) {
     changes.log_retention_days = String(settings.log_retention_days)
   }
@@ -101,7 +94,7 @@ onMounted(load)
 <template>
   <AppLayout>
     <h1 class="text-2xl font-semibold">设置</h1>
-    <p class="mt-1 text-sm text-slate-400">更新 MeoW API、日志保留和管理员密码。</p>
+    <p class="mt-1 text-sm text-slate-400">更新日志保留和管理员密码。</p>
 
     <p v-if="error" class="mt-6 rounded-xl border border-red-500/40 bg-red-950 p-4 text-sm text-red-100">{{ error }}</p>
     <p v-else-if="loading" class="mt-6 text-sm text-slate-400">加载中...</p>
@@ -110,10 +103,6 @@ onMounted(load)
       <form class="rounded-2xl border border-slate-800 bg-slate-900 p-6" @submit.prevent="saveSettings">
         <h2 class="text-lg font-semibold">服务设置</h2>
         <div class="mt-5 grid gap-5">
-          <label class="grid gap-2 text-sm text-slate-300">
-            MeoW API Base URL
-            <input v-model="settings.meow_api_base_url" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100" required />
-          </label>
           <label class="grid gap-2 text-sm text-slate-300">
             日志保留天数
             <input v-model="settings.log_retention_days" min="1" type="number" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100" required />

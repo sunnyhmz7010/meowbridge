@@ -47,7 +47,7 @@ body:
       description: OS, Go version, deployment method, database, browser if related to admin UI. / 操作系统、Go 版本、部署方式、数据库；若与管理后台相关，请填写浏览器。
       placeholder: |
         OS: Ubuntu 22.04 / Windows 11
-        Go: 1.23.x
+        Go: 1.26.x
         Deployment: go run / binary / Docker / reverse proxy
         Browser: Chrome / Edge / Firefox
     validations:
@@ -59,8 +59,8 @@ body:
       label: Configuration / 配置信息
       description: Relevant environment variables or endpoint settings. Remove secrets before submitting. / 相关环境变量或 endpoint 设置。提交前请移除密钥。
       placeholder: |
-        MEOW_API_BASE_URL=...
-        DATABASE_PATH=...
+        HTTP_PORT=8080
+        LOG_RETENTION_DAYS=14
         Webhook source: GitHub / Grafana / Generic / ...
 
   - type: textarea

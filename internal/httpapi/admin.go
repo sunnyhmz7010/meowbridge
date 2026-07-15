@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -319,7 +318,7 @@ func (api *API) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusInternalServerError, "failed to list settings")
 		return
 	}
-	respond.OK(w, values)
+	respond.OK(w, publicSettings(values))
 }
 
 func (api *API) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
@@ -335,24 +334,19 @@ func (api *API) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if value, ok := values["meow_api_base_url"]; ok {
-		value = strings.TrimSpace(value)
-		parsed, err := url.Parse(value)
-		if err != nil || value == "" || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-			respond.Error(w, http.StatusBadRequest, "meow_api_base_url must be an absolute http or https URL")
+	if value, ok := values["log_retention_days"]; ok {
+		if err := api.deps.Store.SetSetting(r.Context(), "log_retention_days", value); err != nil {
+			respond.Error(w, http.StatusInternalServerError, "failed to update settings")
 			return
-		}
-		values["meow_api_base_url"] = value
-	}
-	for _, key := range []string{"meow_api_base_url", "log_retention_days"} {
-		if value, ok := values[key]; ok {
-			if err := api.deps.Store.SetSetting(r.Context(), key, value); err != nil {
-				respond.Error(w, http.StatusInternalServerError, "failed to update settings")
-				return
-			}
 		}
 	}
 	respond.OK(w, map[string]bool{"updated": true})
+}
+
+func publicSettings(values map[string]string) map[string]string {
+	return map[string]string{
+		"log_retention_days": values["log_retention_days"],
+	}
 }
 
 func (api *API) handleChangePassword(w http.ResponseWriter, r *http.Request) {

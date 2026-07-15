@@ -7,7 +7,6 @@ import (
 
 func TestLoadDoesNotRequireAdminPasswordAfterBootstrap(t *testing.T) {
 	t.Setenv("ADMIN_PASSWORD", "")
-	t.Setenv("MEOW_API_BASE_URL", "")
 	t.Setenv("JWT_SECRET", "jwt-secret")
 
 	cfg, err := Load()
@@ -17,32 +16,48 @@ func TestLoadDoesNotRequireAdminPasswordAfterBootstrap(t *testing.T) {
 	if cfg.AdminPassword != "" {
 		t.Fatalf("AdminPassword = %q", cfg.AdminPassword)
 	}
-	if cfg.MeowAPIBaseURL != "" {
-		t.Fatalf("MeowAPIBaseURL = %q", cfg.MeowAPIBaseURL)
-	}
 }
 
 func TestLoadUsesDefaults(t *testing.T) {
 	t.Setenv("ADMIN_PASSWORD", "secret-password")
-	t.Setenv("MEOW_API_BASE_URL", "https://push.example.test")
 	t.Setenv("DATABASE_PATH", "")
-	t.Setenv("HTTP_ADDR", "")
+	t.Setenv("HTTP_ADDR", ":9000")
+	t.Setenv("HTTP_PORT", "")
 	t.Setenv("JWT_SECRET", "jwt-secret")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.DatabasePath != "meowbridge.db" {
-		t.Fatalf("DatabasePath = %q", cfg.DatabasePath)
-	}
-	if cfg.HTTPAddr != ":8080" {
-		t.Fatalf("HTTPAddr = %q", cfg.HTTPAddr)
+	if cfg.HTTPPort != "8080" {
+		t.Fatalf("HTTPPort = %q", cfg.HTTPPort)
 	}
 	if cfg.LogRetentionDays != 14 {
 		t.Fatalf("LogRetentionDays = %d", cfg.LogRetentionDays)
 	}
 	if cfg.MeowTimeout != 10*time.Second {
 		t.Fatalf("MeowTimeout = %s", cfg.MeowTimeout)
+	}
+}
+
+func TestLoadUsesHTTPPortWithoutColon(t *testing.T) {
+	t.Setenv("HTTP_PORT", "9090")
+	t.Setenv("JWT_SECRET", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.HTTPPort != "9090" {
+		t.Fatalf("HTTPPort = %q", cfg.HTTPPort)
+	}
+}
+
+func TestLoadRejectsHTTPPortWithColon(t *testing.T) {
+	t.Setenv("HTTP_PORT", ":9090")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() error = nil")
 	}
 }
