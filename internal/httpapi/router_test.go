@@ -66,15 +66,21 @@ func TestAdminRouteDoesNotCaptureVerifyRoute(t *testing.T) {
 	assertTokenNotFoundJSON(t, rr)
 }
 
-func TestAdminRouteDisabledWhenUIIsNotBuilt(t *testing.T) {
+func TestAdminRouteServesEmbeddedUI(t *testing.T) {
 	router := NewRouter(Dependencies{Config: config.Config{JWTSecret: "secret"}})
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/logs/1", nil)
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want %d", rr.Code, http.StatusNotFound)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusOK)
+	}
+	if contentType := rr.Header().Get("Content-Type"); !strings.Contains(contentType, "text/html") {
+		t.Fatalf("Content-Type = %q, want text/html", contentType)
+	}
+	if body := rr.Body.String(); !strings.Contains(body, `id="app"`) {
+		t.Fatalf("body missing app mount: %q", body)
 	}
 }
 

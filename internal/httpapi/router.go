@@ -36,6 +36,6 @@ func NewRouter(deps Dependencies) http.Handler {
 		http.Redirect(w, r, "/admin/", http.StatusFound)
 	})
 	r.Handle("/admin", http.RedirectHandler("/admin/", http.StatusFound))
-	r.Handle("/admin/*", webui.DisabledHandler())
+	r.Handle("/admin/*", webui.HandlerFromEmbeddedAssets())
 	return r
 }
