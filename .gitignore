@@ -1,2 +1,4 @@
 .worktrees/
 .superpowers/
+web/node_modules/
+web/dist/
