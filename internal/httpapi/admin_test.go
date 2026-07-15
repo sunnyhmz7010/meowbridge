@@ -44,7 +44,7 @@ func TestAdminLoginAndEndpointCRUD(t *testing.T) {
 		t.Fatal("missing token")
 	}
 
-	createReq := httptest.NewRequest(http.MethodPost, "/api/admin/endpoints", bytes.NewBufferString(`{"name":"GitHub","meow_nickname":"sunny","default_title":"GitHub","msg_type":"text","html_height":200,"active":true}`))
+	createReq := httptest.NewRequest(http.MethodPost, "/api/admin/endpoints", bytes.NewBufferString(`{"name":"GitHub","meow_nickname":"sunny","default_title":"GitHub","msg_type":"text","html_height":200,"parser_config":{"mode":"preset","preset":"github_push_minimal"},"active":true}`))
 	createReq.Header.Set("Authorization", "Bearer "+loginBody.Data.Token)
 	createReq.Header.Set("Content-Type", "application/json")
 	createRR := httptest.NewRecorder()
@@ -54,6 +54,9 @@ func TestAdminLoginAndEndpointCRUD(t *testing.T) {
 	}
 	if !strings.Contains(createRR.Body.String(), `"meow_nickname"`) || strings.Contains(createRR.Body.String(), `"MeowNickname"`) {
 		t.Fatalf("create response does not use stable snake_case JSON: %s", createRR.Body.String())
+	}
+	if !strings.Contains(createRR.Body.String(), `"parser_config":{"mode":"preset","preset":"github_push_minimal","field_mapping":{},"default_values":{}}`) {
+		t.Fatalf("create response does not expose parser_config object: %s", createRR.Body.String())
 	}
 
 	listReq := httptest.NewRequest(http.MethodGet, "/api/admin/endpoints", nil)
@@ -65,6 +68,86 @@ func TestAdminLoginAndEndpointCRUD(t *testing.T) {
 	}
 	if !strings.Contains(listRR.Body.String(), `"default_title"`) || strings.Contains(listRR.Body.String(), `"DefaultTitle"`) {
 		t.Fatalf("list response does not use stable snake_case JSON: %s", listRR.Body.String())
+	}
+}
+
+func TestAdminWebhookPresetsAndPreview(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+	token := adminToken(t, router)
+
+	presetsReq := httptest.NewRequest(http.MethodGet, "/api/admin/webhook/presets", nil)
+	presetsReq.Header.Set("Authorization", "Bearer "+token)
+	presetsRR := httptest.NewRecorder()
+	router.ServeHTTP(presetsRR, presetsReq)
+	if presetsRR.Code != http.StatusOK {
+		t.Fatalf("presets status = %d body = %s", presetsRR.Code, presetsRR.Body.String())
+	}
+	if !strings.Contains(presetsRR.Body.String(), `"id":"github_push_minimal"`) || !strings.Contains(presetsRR.Body.String(), `"field_mapping"`) {
+		t.Fatalf("presets response missing parser details: %s", presetsRR.Body.String())
+	}
+
+	previewBody := `{
+		"parser_config": {"mode":"preset","preset":"github_push_minimal"},
+		"payload": {"sourcecontrol":"github","service":"github","event_type":"push","hook":{"url":"https://github.com/sunnyhmz7010/meowbridge"},"ref":"refs/heads/main"}
+	}`
+	previewReq := httptest.NewRequest(http.MethodPost, "/api/admin/webhook/preview", bytes.NewBufferString(previewBody))
+	previewReq.Header.Set("Authorization", "Bearer "+token)
+	previewReq.Header.Set("Content-Type", "application/json")
+	previewRR := httptest.NewRecorder()
+	router.ServeHTTP(previewRR, previewReq)
+	if previewRR.Code != http.StatusOK {
+		t.Fatalf("preview status = %d body = %s", previewRR.Code, previewRR.Body.String())
+	}
+	for _, want := range []string{`"source_type":"github_push_minimal"`, `"title":"GitHub Push"`, "分支: main"} {
+		if !strings.Contains(previewRR.Body.String(), want) {
+			t.Fatalf("preview response missing %q: %s", want, previewRR.Body.String())
+		}
+	}
+}
+
+func TestAdminRejectsInvalidParserConfig(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{AdminPassword: "admin-password", LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+	token := adminToken(t, router)
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/admin/endpoints", bytes.NewBufferString(`{"name":"Bad","meow_nickname":"sunny","parser_config":[]}`))
+	createReq.Header.Set("Authorization", "Bearer "+token)
+	createReq.Header.Set("Content-Type", "application/json")
+	createRR := httptest.NewRecorder()
+	router.ServeHTTP(createRR, createReq)
+	if createRR.Code != http.StatusBadRequest {
+		t.Fatalf("create status = %d body = %s", createRR.Code, createRR.Body.String())
+	}
+
+	validReq := httptest.NewRequest(http.MethodPost, "/api/admin/endpoints", bytes.NewBufferString(`{"name":"Good","meow_nickname":"sunny","parser_config":{"mode":"preset","preset":"github_push_minimal"}}`))
+	validReq.Header.Set("Authorization", "Bearer "+token)
+	validReq.Header.Set("Content-Type", "application/json")
+	validRR := httptest.NewRecorder()
+	router.ServeHTTP(validRR, validReq)
+	if validRR.Code != http.StatusOK {
+		t.Fatalf("valid create status = %d body = %s", validRR.Code, validRR.Body.String())
+	}
+	endpoints, err := st.ListEndpoints(ctx)
+	if err != nil || len(endpoints) != 1 {
+		t.Fatalf("ListEndpoints = %#v, %v", endpoints, err)
+	}
+
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/admin/endpoints/"+strconv.FormatInt(endpoints[0].ID, 10), bytes.NewBufferString(`{"name":"Bad","parser_config":{"mode":"preset","preset":"missing"}}`))
+	updateReq.Header.Set("Authorization", "Bearer "+token)
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateRR := httptest.NewRecorder()
+	router.ServeHTTP(updateRR, updateReq)
+	if updateRR.Code != http.StatusBadRequest {
+		t.Fatalf("update status = %d body = %s", updateRR.Code, updateRR.Body.String())
 	}
 }
 

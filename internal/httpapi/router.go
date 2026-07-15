@@ -30,6 +30,7 @@ func NewRouter(deps Dependencies) http.Handler {
 			r.Put("/settings", api.handleUpdateSettings)
 			r.Post("/change-password", api.handleChangePassword)
 			r.Get("/webhook/presets", api.handleWebhookPresets)
+			r.Post("/webhook/preview", api.handleWebhookPreview)
 		})
 	})
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {

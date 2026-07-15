@@ -67,7 +67,7 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parsed, status, parseErr := api.parseWebhookRequest(r, body)
+	parsed, status, parseErr := api.parseWebhookRequest(r, ep, body)
 	if parseErr != nil {
 		api.writeWebhookLog(r, ep, parsed, webhook.FinalMessage{}, 0, "", false, parseErr.Error(), string(body))
 		respond.Error(w, status, parseErr.Error())
@@ -109,16 +109,37 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	respond.WebhookOK(w, logID)
 }
 
-func (api *API) parseWebhookRequest(r *http.Request, body []byte) (webhook.ParsedMessage, int, error) {
+func (api *API) parseWebhookRequest(r *http.Request, ep store.Endpoint, body []byte) (webhook.ParsedMessage, int, error) {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err == nil && mediaType == "text/plain" {
 		return webhook.ParsedMessage{SourceType: "text_plain", Msg: strings.TrimSpace(string(body)), MsgType: "text"}, http.StatusOK, nil
+	}
+	if config, ok := endpointParserConfig(ep); ok {
+		parsed, matched, err := webhook.ParseWithConfig(webhook.ParseInput{Headers: r.Header, Body: body}, config)
+		if err != nil {
+			return webhook.ParsedMessage{}, http.StatusBadRequest, err
+		}
+		if matched {
+			return parsed, http.StatusOK, nil
+		}
 	}
 	parsed, err := webhook.Parse(webhook.ParseInput{Headers: r.Header, Body: body})
 	if err != nil {
 		return webhook.ParsedMessage{}, http.StatusBadRequest, err
 	}
 	return parsed, http.StatusOK, nil
+}
+
+func endpointParserConfig(ep store.Endpoint) (webhook.ParserConfig, bool) {
+	raw := strings.TrimSpace(ep.ParserConfig)
+	if raw == "" {
+		return webhook.ParserConfig{}, false
+	}
+	var config webhook.ParserConfig
+	if err := json.Unmarshal([]byte(raw), &config); err != nil {
+		return webhook.ParserConfig{}, false
+	}
+	return config, true
 }
 
 func queryOverrides(r *http.Request) webhook.QueryOverrides {

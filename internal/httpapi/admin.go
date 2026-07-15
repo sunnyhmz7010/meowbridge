@@ -13,6 +13,7 @@ import (
 	"github.com/sunnyhmz7010/meowbridge/internal/respond"
 	"github.com/sunnyhmz7010/meowbridge/internal/store"
 	"github.com/sunnyhmz7010/meowbridge/internal/token"
+	"github.com/sunnyhmz7010/meowbridge/internal/webhook"
 )
 
 type pushLogListItem struct {
@@ -34,14 +35,36 @@ type loginRequest struct {
 }
 
 type endpointRequest struct {
-	Name          string `json:"name"`
-	MeowNickname  string `json:"meow_nickname"`
-	DefaultTitle  string `json:"default_title"`
-	MsgType       string `json:"msg_type"`
-	HTMLHeight    int    `json:"html_height"`
-	DefaultURL    string `json:"default_url"`
-	DefaultImgURL string `json:"default_img_url"`
-	Active        *bool  `json:"active"`
+	Name          string           `json:"name"`
+	MeowNickname  string           `json:"meow_nickname"`
+	DefaultTitle  string           `json:"default_title"`
+	MsgType       string           `json:"msg_type"`
+	HTMLHeight    int              `json:"html_height"`
+	DefaultURL    string           `json:"default_url"`
+	DefaultImgURL string           `json:"default_img_url"`
+	ParserConfig  *json.RawMessage `json:"parser_config"`
+	Active        *bool            `json:"active"`
+}
+
+type endpointResponse struct {
+	ID            int64           `json:"id"`
+	Name          string          `json:"name"`
+	Token         string          `json:"token"`
+	MeowNickname  string          `json:"meow_nickname"`
+	DefaultTitle  string          `json:"default_title"`
+	MsgType       string          `json:"msg_type"`
+	HTMLHeight    int             `json:"html_height"`
+	DefaultURL    string          `json:"default_url"`
+	DefaultImgURL string          `json:"default_img_url"`
+	ParserConfig  json.RawMessage `json:"parser_config"`
+	Active        bool            `json:"active"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+}
+
+type webhookPreviewRequest struct {
+	ParserConfig webhook.ParserConfig `json:"parser_config"`
+	Payload      json.RawMessage      `json:"payload"`
 }
 
 func (api *API) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -89,17 +112,22 @@ func (api *API) handleCreateEndpoint(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "name and meow_nickname are required")
 		return
 	}
+	parserConfig, err := rawParserConfig(req.ParserConfig)
+	if err != nil {
+		respond.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	tok, err := token.Generate()
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "failed to generate token")
 		return
 	}
-	ep, err := api.deps.Store.CreateEndpoint(r.Context(), store.EndpointInput{Name: req.Name, Token: tok, MeowNickname: req.MeowNickname, DefaultTitle: req.DefaultTitle, MsgType: defaultString(req.MsgType, "text"), HTMLHeight: defaultInt(req.HTMLHeight, 200), DefaultURL: req.DefaultURL, DefaultImgURL: req.DefaultImgURL, Active: defaultBool(req.Active, true)})
+	ep, err := api.deps.Store.CreateEndpoint(r.Context(), store.EndpointInput{Name: req.Name, Token: tok, MeowNickname: req.MeowNickname, DefaultTitle: req.DefaultTitle, MsgType: defaultString(req.MsgType, "text"), HTMLHeight: defaultInt(req.HTMLHeight, 200), DefaultURL: req.DefaultURL, DefaultImgURL: req.DefaultImgURL, ParserConfig: parserConfig, Active: defaultBool(req.Active, true)})
 	if err != nil {
 		respond.Error(w, http.StatusInternalServerError, "failed to create endpoint")
 		return
 	}
-	respond.OK(w, ep)
+	respond.OK(w, endpointToResponse(ep))
 }
 
 func (api *API) handleListEndpoints(w http.ResponseWriter, r *http.Request) {
@@ -108,11 +136,49 @@ func (api *API) handleListEndpoints(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusInternalServerError, "failed to list endpoints")
 		return
 	}
-	respond.OK(w, endpoints)
+	items := make([]endpointResponse, 0, len(endpoints))
+	for _, ep := range endpoints {
+		items = append(items, endpointToResponse(ep))
+	}
+	respond.OK(w, items)
 }
 
 func endpointID(r *http.Request) (int64, error) {
 	return strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+}
+func rawParserConfig(value *json.RawMessage) (string, error) {
+	if value == nil {
+		return "", nil
+	}
+	return webhook.NormalizeParserConfig(*value)
+}
+func parserConfigJSON(value string) json.RawMessage {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return json.RawMessage("null")
+	}
+	normalized, err := webhook.NormalizeParserConfig([]byte(value))
+	if err != nil || normalized == "" || !json.Valid([]byte(normalized)) {
+		return json.RawMessage("null")
+	}
+	return json.RawMessage(normalized)
+}
+func endpointToResponse(ep store.Endpoint) endpointResponse {
+	return endpointResponse{
+		ID:            ep.ID,
+		Name:          ep.Name,
+		Token:         ep.Token,
+		MeowNickname:  ep.MeowNickname,
+		DefaultTitle:  ep.DefaultTitle,
+		MsgType:       ep.MsgType,
+		HTMLHeight:    ep.HTMLHeight,
+		DefaultURL:    ep.DefaultURL,
+		DefaultImgURL: ep.DefaultImgURL,
+		ParserConfig:  parserConfigJSON(ep.ParserConfig),
+		Active:        ep.Active,
+		CreatedAt:     ep.CreatedAt,
+		UpdatedAt:     ep.UpdatedAt,
+	}
 }
 func defaultString(value, fallback string) string {
 	if strings.TrimSpace(value) == "" {
@@ -154,7 +220,7 @@ func (api *API) handleGetEndpoint(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusInternalServerError, "failed to get endpoint")
 		return
 	}
-	respond.OK(w, ep)
+	respond.OK(w, endpointToResponse(ep))
 }
 
 func (api *API) handleUpdateEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -168,22 +234,28 @@ func (api *API) handleUpdateEndpoint(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	active := true
-	if req.Active == nil {
-		existing, err := api.deps.Store.GetEndpoint(r.Context(), id)
-		if errors.Is(err, store.ErrNotFound) {
-			respond.Error(w, http.StatusNotFound, "endpoint not found")
-			return
-		}
-		if err != nil {
-			respond.Error(w, http.StatusInternalServerError, "failed to get endpoint")
-			return
-		}
-		active = existing.Active
-	} else {
+	existing, err := api.deps.Store.GetEndpoint(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		respond.Error(w, http.StatusNotFound, "endpoint not found")
+		return
+	}
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to get endpoint")
+		return
+	}
+	active := existing.Active
+	if req.Active != nil {
 		active = *req.Active
 	}
-	ep, err := api.deps.Store.UpdateEndpoint(r.Context(), id, store.EndpointUpdate{Name: req.Name, DefaultTitle: req.DefaultTitle, MsgType: defaultString(req.MsgType, "text"), HTMLHeight: defaultInt(req.HTMLHeight, 200), DefaultURL: req.DefaultURL, DefaultImgURL: req.DefaultImgURL, Active: active})
+	parserConfig := existing.ParserConfig
+	if req.ParserConfig != nil {
+		parserConfig, err = rawParserConfig(req.ParserConfig)
+		if err != nil {
+			respond.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	ep, err := api.deps.Store.UpdateEndpoint(r.Context(), id, store.EndpointUpdate{Name: req.Name, DefaultTitle: req.DefaultTitle, MsgType: defaultString(req.MsgType, "text"), HTMLHeight: defaultInt(req.HTMLHeight, 200), DefaultURL: req.DefaultURL, DefaultImgURL: req.DefaultImgURL, ParserConfig: parserConfig, Active: active})
 	if errors.Is(err, store.ErrNotFound) {
 		respond.Error(w, http.StatusNotFound, "endpoint not found")
 		return
@@ -192,7 +264,7 @@ func (api *API) handleUpdateEndpoint(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusInternalServerError, "failed to update endpoint")
 		return
 	}
-	respond.OK(w, ep)
+	respond.OK(w, endpointToResponse(ep))
 }
 
 func (api *API) handleDeleteEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -232,7 +304,7 @@ func (api *API) handleResetEndpointToken(w http.ResponseWriter, r *http.Request)
 		respond.Error(w, http.StatusInternalServerError, "failed to reset token")
 		return
 	}
-	respond.OK(w, ep)
+	respond.OK(w, endpointToResponse(ep))
 }
 
 func (api *API) handleSetEndpointActive(w http.ResponseWriter, r *http.Request) {
@@ -380,5 +452,31 @@ func (api *API) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func (api *API) handleWebhookPresets(w http.ResponseWriter, r *http.Request) {
-	respond.OK(w, []map[string]string{{"source_type": "github_pr", "name": "GitHub Pull Request"}, {"source_type": "github_action", "name": "GitHub Actions"}, {"source_type": "github", "name": "GitHub Webhook"}, {"source_type": "jenkins", "name": "Jenkins"}, {"source_type": "grafana", "name": "Grafana"}, {"source_type": "prometheus", "name": "Prometheus Alertmanager"}, {"source_type": "zabbix", "name": "Zabbix"}, {"source_type": "gotify", "name": "Gotify"}, {"source_type": "emby", "name": "Emby"}, {"source_type": "generic", "name": "Generic"}})
+	respond.OK(w, webhook.ParserPresets())
+}
+
+func (api *API) handleWebhookPreview(w http.ResponseWriter, r *http.Request) {
+	var req webhookPreviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respond.Error(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if len(req.Payload) == 0 || !json.Valid(req.Payload) {
+		respond.Error(w, http.StatusBadRequest, "payload must be valid json")
+		return
+	}
+	input := webhook.ParseInput{Headers: r.Header, Body: req.Payload}
+	parsed, matched, err := webhook.ParseWithConfig(input, req.ParserConfig)
+	if err != nil {
+		respond.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !matched {
+		parsed, err = webhook.Parse(input)
+		if err != nil {
+			respond.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	respond.OK(w, parsed)
 }

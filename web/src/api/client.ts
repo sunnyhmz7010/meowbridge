@@ -2,13 +2,20 @@ import type {
   EndpointInput,
   EndpointUpdate,
   EndpointView,
+  ParserConfig,
   PushLog,
   PushLogListItem,
+  WebhookPreset,
+  WebhookPreviewRequest,
+  WebhookPreviewResult,
 } from './types'
 
 type SuccessResponse<T> = { ok: true; data: T }
 type ErrorResponse = { ok: false; error: string }
 type RequestOptions = { skipUnauthorizedForErrors?: string[] }
+type RawEndpointView = Omit<EndpointView, 'parser_config'> & {
+  parser_config?: ParserConfig | null
+}
 
 let tokenProvider: () => string | null = () => localStorage.getItem('meowbridge_token')
 let unauthorizedHandler: () => void = () => {}
@@ -31,7 +38,7 @@ export function setUnauthorizedHandler(handler: () => void): void {
   unauthorizedHandler = handler
 }
 
-export function normalizeEndpoint(input: EndpointView): EndpointView {
+export function normalizeEndpoint(input: RawEndpointView): EndpointView {
   return {
     id: input.id,
     name: input.name,
@@ -42,10 +49,51 @@ export function normalizeEndpoint(input: EndpointView): EndpointView {
     html_height: input.html_height,
     default_url: input.default_url,
     default_img_url: input.default_img_url,
+    parser_config: normalizeParserConfig(input.parser_config),
     active: input.active,
     created_at: input.created_at,
     updated_at: input.updated_at,
   }
+}
+
+export function defaultParserConfig(): ParserConfig {
+  return {
+    mode: 'auto',
+    preset: '',
+    field_mapping: {},
+    default_values: {},
+  }
+}
+
+function normalizeParserConfig(input: ParserConfig | null | undefined): ParserConfig {
+  if (!input || typeof input !== 'object') {
+    return defaultParserConfig()
+  }
+  const mode = input.mode === 'preset' || input.mode === 'custom' ? input.mode : 'auto'
+  return {
+    mode,
+    preset: typeof input.preset === 'string' ? input.preset : '',
+    field_mapping: normalizeStringArrayRecord(input.field_mapping),
+    default_values: normalizeStringRecord(input.default_values),
+  }
+}
+
+function normalizeStringArrayRecord(input: Record<string, string[]> | undefined): Record<string, string[]> {
+  if (!input || typeof input !== 'object') {
+    return {}
+  }
+  return Object.fromEntries(
+    Object.entries(input)
+      .filter(([, value]) => Array.isArray(value))
+      .map(([key, value]) => [key, value.map(String)]),
+  )
+}
+
+function normalizeStringRecord(input: Record<string, string> | undefined): Record<string, string> {
+  if (!input || typeof input !== 'object') {
+    return {}
+  }
+  return Object.fromEntries(Object.entries(input).map(([key, value]) => [key, String(value)]))
 }
 
 export function normalizePushLog(input: PushLog): Required<PushLogListItem> & {
@@ -128,15 +176,15 @@ export const apiClient = {
     return data.token
   },
   async listEndpoints(): Promise<EndpointView[]> {
-    const data = await request<EndpointView[]>('/api/admin/endpoints')
+    const data = await request<RawEndpointView[]>('/api/admin/endpoints')
     return data.map(normalizeEndpoint)
   },
   async getEndpoint(id: number): Promise<EndpointView> {
-    return normalizeEndpoint(await request<EndpointView>(`/api/admin/endpoints/${id}`))
+    return normalizeEndpoint(await request<RawEndpointView>(`/api/admin/endpoints/${id}`))
   },
   async createEndpoint(input: EndpointInput): Promise<EndpointView> {
     return normalizeEndpoint(
-      await request<EndpointView>('/api/admin/endpoints', {
+      await request<RawEndpointView>('/api/admin/endpoints', {
         method: 'POST',
         body: JSON.stringify(input),
       }),
@@ -144,7 +192,7 @@ export const apiClient = {
   },
   async updateEndpoint(id: number, input: EndpointUpdate): Promise<EndpointView> {
     return normalizeEndpoint(
-      await request<EndpointView>(`/api/admin/endpoints/${id}`, {
+      await request<RawEndpointView>(`/api/admin/endpoints/${id}`, {
         method: 'PUT',
         body: JSON.stringify(input),
       }),
@@ -155,7 +203,7 @@ export const apiClient = {
   },
   async resetEndpointToken(id: number): Promise<EndpointView> {
     return normalizeEndpoint(
-      await request<EndpointView>(`/api/admin/endpoints/${id}/reset-token`, { method: 'POST' }),
+      await request<RawEndpointView>(`/api/admin/endpoints/${id}/reset-token`, { method: 'POST' }),
     )
   },
   async setEndpointActive(id: number, active: boolean): Promise<{ active: boolean }> {
@@ -191,5 +239,14 @@ export const apiClient = {
       },
       { skipUnauthorizedForErrors: ['invalid credentials'] },
     )
+  },
+  async getWebhookPresets(): Promise<WebhookPreset[]> {
+    return request<WebhookPreset[]>('/api/admin/webhook/presets')
+  },
+  async previewWebhook(input: WebhookPreviewRequest): Promise<WebhookPreviewResult> {
+    return request<WebhookPreviewResult>('/api/admin/webhook/preview', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
   },
 }

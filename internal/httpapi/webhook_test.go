@@ -56,6 +56,75 @@ func TestWebhookSuccessWritesLog(t *testing.T) {
 	}
 }
 
+func TestWebhookUsesEndpointParserConfigForMinimalGitHubPayload(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	_, err := st.CreateEndpoint(ctx, store.EndpointInput{
+		Name:         "GitHub minimal",
+		Token:        "github-minimal-token",
+		MeowNickname: "sunny",
+		MsgType:      "text",
+		HTMLHeight:   200,
+		ParserConfig: `{"mode":"preset","preset":"github_push_minimal"}`,
+		Active:       true,
+	})
+	if err != nil {
+		t.Fatalf("CreateEndpoint: %v", err)
+	}
+
+	var received map[string]string
+	var receivedMsgType string
+	meowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedMsgType = r.URL.Query().Get("msgType")
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatalf("decode push request: %v", err)
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer meowServer.Close()
+
+	router := NewRouter(Dependencies{
+		Store:      st,
+		Config:     config.Config{JWTSecret: "secret", MeowTimeout: time.Second},
+		MeowClient: meow.New(meowServer.URL, time.Second),
+	})
+
+	payload := `{"sourcecontrol":"github","service":"github","event_type":"push","hook":{"url":"https://github.com/sunnyhmz7010/meowbridge"},"ref":"refs/heads/main"}`
+	req := httptest.NewRequest(http.MethodPost, "/webhook/github-minimal-token", bytes.NewBufferString(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	if received["title"] != "GitHub Push" {
+		t.Fatalf("title = %q", received["title"])
+	}
+	for _, want := range []string{
+		"仓库: https://github.com/sunnyhmz7010/meowbridge",
+		"分支: main",
+		"事件: push",
+		"来源: github",
+	} {
+		if !strings.Contains(received["msg"], want) {
+			t.Fatalf("msg %q does not contain %q", received["msg"], want)
+		}
+	}
+	if received["url"] != "https://github.com/sunnyhmz7010/meowbridge" || receivedMsgType != "markdown" {
+		t.Fatalf("received = %#v msgType=%q", received, receivedMsgType)
+	}
+
+	logs, err := st.ListPushLogs(ctx)
+	if err != nil {
+		t.Fatalf("ListPushLogs: %v", err)
+	}
+	if len(logs) != 1 || logs[0].SourceType != "github_push_minimal" || logs[0].ParsedTitle != "GitHub Push" {
+		t.Fatalf("logs = %#v", logs)
+	}
+}
+
 func TestWebhookReturns404ForUnknownToken(t *testing.T) {
 	st := newHTTPTestStore(t)
 	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})

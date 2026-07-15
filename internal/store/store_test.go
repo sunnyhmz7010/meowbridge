@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 )
 
@@ -16,6 +17,60 @@ func TestMigrateCreatesCoreTables(t *testing.T) {
 		if err != nil {
 			t.Fatalf("table %s was not created: %v", table, err)
 		}
+	}
+}
+
+func TestMigrateAddsParserConfigColumnToExistingEndpoints(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("Open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE endpoints (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			token TEXT NOT NULL UNIQUE,
+			meow_nickname TEXT NOT NULL,
+			default_title TEXT NOT NULL DEFAULT '',
+			msg_type TEXT NOT NULL DEFAULT 'text',
+			html_height INTEGER NOT NULL DEFAULT 200,
+			default_url TEXT NOT NULL DEFAULT '',
+			default_img_url TEXT NOT NULL DEFAULT '',
+			active INTEGER NOT NULL DEFAULT 1,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)
+	`); err != nil {
+		t.Fatalf("create legacy endpoints table: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO endpoints(name, token, meow_nickname)
+		VALUES ('Legacy', 'legacy-token', 'sunny')
+	`); err != nil {
+		t.Fatalf("insert legacy endpoint: %v", err)
+	}
+
+	st := &Store{db: db}
+	if err := st.Migrate(ctx); err != nil {
+		t.Fatalf("Migrate legacy schema: %v", err)
+	}
+
+	var parserConfigDefault string
+	if err := db.QueryRowContext(ctx, `SELECT "parser_config" FROM endpoints LIMIT 1`).Scan(&parserConfigDefault); err != nil {
+		t.Fatalf("parser_config column missing: %v", err)
+	}
+	if parserConfigDefault != "" {
+		t.Fatalf("parser_config default = %q, want empty", parserConfigDefault)
+	}
+	endpoint, err := st.GetEndpointByToken(ctx, "legacy-token")
+	if err != nil {
+		t.Fatalf("GetEndpointByToken legacy endpoint: %v", err)
+	}
+	if endpoint.ParserConfig != "" {
+		t.Fatalf("Endpoint.ParserConfig = %q, want empty", endpoint.ParserConfig)
 	}
 }
 
@@ -121,6 +176,7 @@ func TestEndpointCRUDKeepsMeowNicknameImmutable(t *testing.T) {
 		HTMLHeight:    300,
 		DefaultURL:    "https://example.test",
 		DefaultImgURL: "https://example.test/icon.png",
+		ParserConfig:  `{"mode":"preset","preset":"github_push_minimal"}`,
 		Active:        true,
 	})
 	if err != nil {
@@ -134,10 +190,14 @@ func TestEndpointCRUDKeepsMeowNicknameImmutable(t *testing.T) {
 		HTMLHeight:    200,
 		DefaultURL:    "",
 		DefaultImgURL: "",
+		ParserConfig:  `{"mode":"custom"}`,
 		Active:        true,
 	})
 	if err != nil {
 		t.Fatalf("UpdateEndpoint: %v", err)
+	}
+	if updated.ParserConfig != `{"mode":"custom"}` {
+		t.Fatalf("ParserConfig = %q", updated.ParserConfig)
 	}
 	if updated.MeowNickname != "sunny" {
 		t.Fatalf("MeowNickname changed to %q", updated.MeowNickname)

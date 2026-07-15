@@ -34,6 +34,21 @@ function webhookURL(endpoint: EndpointView): string {
   return `${window.location.origin}/webhook/${endpoint.token}`
 }
 
+function parserLabel(endpoint: EndpointView): string {
+  const config = endpoint.parser_config
+  if (config?.mode === 'preset') {
+    return config.preset || '预设解析器'
+  }
+  if (config?.mode === 'custom') {
+    return '自定义映射'
+  }
+  return '自动解析'
+}
+
+function parserMode(endpoint: EndpointView): string {
+  return endpoint.parser_config?.mode || 'auto'
+}
+
 async function load(): Promise<void> {
   loading.value = true
   error.value = ''
@@ -180,6 +195,7 @@ onMounted(load)
               <th class="px-4 py-3">名称</th>
               <th class="px-4 py-3">MeoW nickname</th>
               <th class="px-4 py-3">消息类型</th>
+              <th class="px-4 py-3">解析器</th>
               <th class="px-4 py-3">状态</th>
               <th class="px-4 py-3">操作</th>
             </tr>
@@ -192,6 +208,11 @@ onMounted(load)
               </td>
               <td class="app-muted px-4 py-3">{{ endpoint.meow_nickname }}</td>
               <td class="app-muted px-4 py-3">{{ endpoint.msg_type }}</td>
+              <td class="px-4 py-3">
+                <span class="app-badge" :class="parserMode(endpoint) === 'auto' ? 'app-badge-muted' : 'app-badge-success'">
+                  {{ parserLabel(endpoint) }}
+                </span>
+              </td>
               <td class="px-4 py-3">
                 <span class="app-badge" :class="endpoint.active ? 'app-badge-success' : 'app-badge-muted'">
                   {{ endpoint.active ? '启用' : '停用' }}

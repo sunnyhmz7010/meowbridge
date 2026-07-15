@@ -1,5 +1,36 @@
 export type MsgType = 'text' | 'html' | 'markdown'
 
+export type ParserMode = 'auto' | 'preset' | 'custom'
+
+export interface ParserConfig {
+  mode: ParserMode
+  preset: string
+  field_mapping: Record<string, string[]>
+  default_values: Record<string, string>
+}
+
+export interface WebhookPreset {
+  id: string
+  name: string
+  description: string
+  field_mapping: Record<string, string[]>
+  default_values: Record<string, string>
+}
+
+export interface WebhookPreviewRequest {
+  parser_config: ParserConfig
+  payload: unknown
+}
+
+export interface WebhookPreviewResult {
+  source_type: string
+  title: string
+  msg: string
+  url: string
+  img_url: string
+  msg_type: MsgType
+}
+
 export interface EndpointView {
   id: number
   name: string
@@ -10,6 +41,7 @@ export interface EndpointView {
   html_height: number
   default_url: string
   default_img_url: string
+  parser_config: ParserConfig
   active: boolean
   created_at: string
   updated_at: string
@@ -23,6 +55,7 @@ export interface EndpointInput {
   html_height: number
   default_url: string
   default_img_url: string
+  parser_config: ParserConfig
   active: boolean
 }
 
@@ -33,6 +66,7 @@ export interface EndpointUpdate {
   html_height: number
   default_url: string
   default_img_url: string
+  parser_config: ParserConfig
   active?: boolean
 }
 

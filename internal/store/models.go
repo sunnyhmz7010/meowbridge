@@ -12,6 +12,7 @@ type Endpoint struct {
 	HTMLHeight    int       `json:"html_height"`
 	DefaultURL    string    `json:"default_url"`
 	DefaultImgURL string    `json:"default_img_url"`
+	ParserConfig  string    `json:"parser_config"`
 	Active        bool      `json:"active"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
