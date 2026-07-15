@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue'
-import { apiClient, setAuthTokenProvider, setUnauthorizedHandler } from '@/api/client'
+import { apiClient, setAuthTokenProvider } from '@/api/client'
 
 const storageKey = 'meowbridge_token'
 const token = ref(localStorage.getItem(storageKey) ?? '')
@@ -25,4 +25,3 @@ export const authStore = {
 }
 
 setAuthTokenProvider(() => token.value || null)
-setUnauthorizedHandler(() => authStore.logout())

@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { setUnauthorizedHandler } from '@/api/client'
 import { authStore } from '@/stores/auth'
 import LoginPage from '@/pages/LoginPage.vue'
 
@@ -40,6 +41,13 @@ router.beforeEach((to) => {
     return authStore.isAuthenticated.value && to.name === 'login' ? '/endpoints' : true
   }
   return authStore.isAuthenticated.value ? true : '/login'
+})
+
+setUnauthorizedHandler(() => {
+  authStore.logout()
+  if (router.currentRoute.value.name !== 'login') {
+    router.push('/login')
+  }
 })
 
 export default router
