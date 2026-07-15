@@ -76,6 +76,21 @@ describe('apiClient', () => {
     })
     expect(onUnauthorized).not.toHaveBeenCalled()
   })
+
+  it('treats an invalid token during password change as an expired login', async () => {
+    const onUnauthorized = vi.fn()
+    setUnauthorizedHandler(onUnauthorized)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ ok: false, error: 'invalid token' }, { status: 401 })),
+    )
+
+    await expect(apiClient.changePassword('old', 'new-secret')).rejects.toMatchObject({
+      status: 401,
+      message: 'invalid token',
+    })
+    expect(onUnauthorized).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('normalizeEndpoint', () => {

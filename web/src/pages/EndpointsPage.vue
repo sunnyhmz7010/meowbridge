@@ -101,6 +101,7 @@ function resetToken(endpoint: EndpointView): void {
     danger: true,
     run: async () => {
       await apiClient.resetEndpointToken(endpoint.id)
+      copyFallbackURL.value = ''
       showToast('Token 已重置，请复制新的 Webhook URL', 'success')
       await load()
     },
@@ -115,6 +116,7 @@ function deleteEndpoint(endpoint: EndpointView): void {
     danger: true,
     run: async () => {
       await apiClient.deleteEndpoint(endpoint.id)
+      copyFallbackURL.value = ''
       showToast('Endpoint 已删除', 'success')
       await load()
     },

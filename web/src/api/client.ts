@@ -9,7 +9,7 @@ import type {
 
 type SuccessResponse<T> = { ok: true; data: T }
 type ErrorResponse = { ok: false; error: string }
-type RequestOptions = { skipUnauthorizedHandler?: boolean }
+type RequestOptions = { skipUnauthorizedForErrors?: string[] }
 
 let tokenProvider: () => string | null = () => localStorage.getItem('meowbridge_token')
 let unauthorizedHandler: () => void = () => {}
@@ -106,7 +106,10 @@ async function request<T>(
     payload = { ok: false, error: '服务返回了无法解析的响应' }
   }
 
-  if (response.status === 401 && !options.skipUnauthorizedHandler) {
+  const shouldSkipUnauthorized = response.status === 401
+    && !payload.ok
+    && options.skipUnauthorizedForErrors?.includes(payload.error)
+  if (response.status === 401 && !shouldSkipUnauthorized) {
     unauthorizedHandler()
   }
 
@@ -187,7 +190,7 @@ export const apiClient = {
         method: 'POST',
         body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
       },
-      { skipUnauthorizedHandler: true },
+      { skipUnauthorizedForErrors: ['invalid credentials'] },
     )
   },
 }
