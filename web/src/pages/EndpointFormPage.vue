@@ -86,6 +86,9 @@ onMounted(load)
 
     <p v-if="error" class="mt-6 rounded-xl border border-red-500/40 bg-red-950 p-4 text-sm text-red-100">{{ error }}</p>
     <p v-if="loading" class="mt-6 text-sm text-slate-400">加载中...</p>
+    <div v-else-if="error" class="mt-6">
+      <button class="rounded-xl border border-slate-700 px-4 py-2" @click="router.push('/endpoints')">返回 Endpoint 列表</button>
+    </div>
 
     <form v-else class="mt-6 grid gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6" @submit.prevent="submit">
       <label class="grid gap-2 text-sm text-slate-300">

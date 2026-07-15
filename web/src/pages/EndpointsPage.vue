@@ -12,6 +12,7 @@ const router = useRouter()
 const endpoints = ref<EndpointView[]>([])
 const loading = ref(true)
 const error = ref('')
+const copyFallbackURL = ref('')
 const actionBusy = ref(false)
 const confirmState = ref<{
   open: boolean
@@ -54,14 +55,26 @@ async function runConfirmed(): Promise<void> {
   try {
     await confirmState.value.run()
     confirmState.value.open = false
+  } catch (err) {
+    showToast(err instanceof ApiError ? err.message : '操作失败，请稍后重试', 'error')
   } finally {
     actionBusy.value = false
   }
 }
 
 async function copyWebhook(endpoint: EndpointView): Promise<void> {
-  await navigator.clipboard.writeText(webhookURL(endpoint))
-  showToast('Webhook URL 已复制', 'success')
+  const url = webhookURL(endpoint)
+  copyFallbackURL.value = ''
+  try {
+    if (!navigator.clipboard) {
+      throw new Error('clipboard unavailable')
+    }
+    await navigator.clipboard.writeText(url)
+    showToast('Webhook URL 已复制', 'success')
+  } catch {
+    copyFallbackURL.value = url
+    showToast('无法自动复制，请手动复制页面中显示的 URL', 'error')
+  }
 }
 
 function toggleActive(endpoint: EndpointView): void {
@@ -125,6 +138,10 @@ onMounted(load)
 
     <p v-if="error" class="mt-6 rounded-xl border border-red-500/40 bg-red-950 p-4 text-sm text-red-100">{{ error }}</p>
     <p v-else-if="loading" class="mt-6 text-sm text-slate-400">加载中...</p>
+    <div v-if="copyFallbackURL" class="mt-6 rounded-xl border border-amber-500/40 bg-amber-950 p-4 text-sm text-amber-100">
+      <p>请手动复制 Webhook URL：</p>
+      <code class="mt-2 block break-all rounded-lg bg-slate-950 p-3 text-amber-50">{{ copyFallbackURL }}</code>
+    </div>
 
     <EmptyState
       v-else-if="endpoints.length === 0"
