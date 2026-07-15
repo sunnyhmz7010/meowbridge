@@ -9,9 +9,9 @@ import { toasts } from './toast'
       :key="toast.id"
       class="rounded-xl border px-4 py-3 text-sm shadow-lg"
       :class="{
-        'border-emerald-400/40 bg-emerald-950 text-emerald-100': toast.tone === 'success',
-        'border-red-400/40 bg-red-950 text-red-100': toast.tone === 'error',
-        'border-cyan-400/40 bg-cyan-950 text-cyan-100': toast.tone === 'info',
+        'app-badge-success': toast.tone === 'success',
+        'app-badge-danger': toast.tone === 'error',
+        'app-badge-muted': toast.tone === 'info',
       }"
     >
       {{ toast.message }}

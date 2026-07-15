@@ -128,21 +128,37 @@ onMounted(load)
 
 <template>
   <AppLayout>
-    <div class="flex items-center justify-between gap-4">
+    <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
       <div>
-        <h1 class="text-2xl font-semibold">Endpoint</h1>
-        <p class="mt-1 text-sm text-slate-400">管理外部服务可直接填写的标准 Webhook 入口。</p>
+        <p class="app-muted text-sm uppercase tracking-[0.22em]">Webhook Endpoints</p>
+        <h1 class="app-heading mt-2 text-3xl font-semibold tracking-tight">Endpoint</h1>
+        <p class="app-muted mt-2 text-sm">管理外部服务可直接填写的标准 Webhook 入口。</p>
       </div>
-      <button class="rounded-xl bg-cyan-500 px-4 py-2 font-medium text-slate-950 hover:bg-cyan-400" @click="router.push('/endpoints/new')">
+      <button class="app-button-primary" @click="router.push('/endpoints/new')">
         新建 Endpoint
       </button>
     </div>
 
-    <p v-if="error" class="mt-6 rounded-xl border border-red-500/40 bg-red-950 p-4 text-sm text-red-100">{{ error }}</p>
-    <p v-else-if="loading" class="mt-6 text-sm text-slate-400">加载中...</p>
-    <div v-if="copyFallbackURL" class="mt-6 rounded-xl border border-amber-500/40 bg-amber-950 p-4 text-sm text-amber-100">
+    <div v-if="!loading && !error" class="mt-6 grid gap-4 md:grid-cols-3">
+      <section class="app-card rounded-3xl p-5">
+        <p class="app-muted text-sm">Endpoint 总数</p>
+        <p class="mt-2 text-3xl font-semibold">{{ endpoints.length }}</p>
+      </section>
+      <section class="app-card rounded-3xl p-5">
+        <p class="app-muted text-sm">启用中</p>
+        <p class="mt-2 text-3xl font-semibold">{{ endpoints.filter((endpoint) => endpoint.active).length }}</p>
+      </section>
+      <section class="app-card rounded-3xl p-5">
+        <p class="app-muted text-sm">已停用</p>
+        <p class="mt-2 text-3xl font-semibold">{{ endpoints.filter((endpoint) => !endpoint.active).length }}</p>
+      </section>
+    </div>
+
+    <p v-if="error" class="mt-6 rounded-xl border p-4 text-sm" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: var(--danger-soft); color: var(--danger);">{{ error }}</p>
+    <p v-else-if="loading" class="app-muted mt-6 text-sm">加载中...</p>
+    <div v-if="copyFallbackURL" class="mt-6 rounded-xl border p-4 text-sm" style="border-color: color-mix(in srgb, var(--warning) 40%, transparent); background: var(--warning-soft); color: var(--warning);">
       <p>请手动复制 Webhook URL：</p>
-      <code class="mt-2 block break-all rounded-lg bg-slate-950 p-3 text-amber-50">{{ copyFallbackURL }}</code>
+      <code class="app-code-block mt-2 block break-all p-3">{{ copyFallbackURL }}</code>
     </div>
 
     <template v-if="!loading && !error">
@@ -152,14 +168,14 @@ onMounted(load)
         title="还没有 endpoint"
         description="创建第一个 endpoint 后，即可复制 Webhook URL 到外部服务。"
       >
-        <button class="rounded-xl bg-cyan-500 px-4 py-2 font-medium text-slate-950 hover:bg-cyan-400" @click="router.push('/endpoints/new')">
+        <button class="app-button-primary" @click="router.push('/endpoints/new')">
           新建 Endpoint
         </button>
       </EmptyState>
 
-      <div v-else class="mt-6 overflow-hidden rounded-2xl border border-slate-800">
-        <table class="w-full border-collapse text-left text-sm">
-          <thead class="bg-slate-900 text-slate-300">
+      <div v-else class="app-card mt-6 overflow-hidden rounded-3xl">
+        <table class="app-table text-sm">
+          <thead>
             <tr>
               <th class="px-4 py-3">名称</th>
               <th class="px-4 py-3">MeoW nickname</th>
@@ -168,28 +184,28 @@ onMounted(load)
               <th class="px-4 py-3">操作</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-800 bg-slate-950">
+          <tbody>
             <tr v-for="endpoint in endpoints" :key="endpoint.id">
               <td class="px-4 py-3">
                 <p class="font-medium">{{ endpoint.name }}</p>
-                <p class="mt-1 max-w-xs truncate text-xs text-slate-500">{{ endpoint.default_title || '无默认标题' }}</p>
+                <p class="app-muted mt-1 max-w-xs truncate text-xs">{{ endpoint.default_title || '无默认标题' }}</p>
               </td>
-              <td class="px-4 py-3 text-slate-300">{{ endpoint.meow_nickname }}</td>
-              <td class="px-4 py-3 text-slate-300">{{ endpoint.msg_type }}</td>
+              <td class="app-muted px-4 py-3">{{ endpoint.meow_nickname }}</td>
+              <td class="app-muted px-4 py-3">{{ endpoint.msg_type }}</td>
               <td class="px-4 py-3">
-                <span class="rounded-full px-2 py-1 text-xs" :class="endpoint.active ? 'bg-emerald-950 text-emerald-200' : 'bg-slate-800 text-slate-300'">
+                <span class="app-badge" :class="endpoint.active ? 'app-badge-success' : 'app-badge-muted'">
                   {{ endpoint.active ? '启用' : '停用' }}
                 </span>
               </td>
               <td class="px-4 py-3">
                 <div class="flex flex-wrap gap-2">
-                  <button class="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800" @click="copyWebhook(endpoint)">复制 URL</button>
-                  <button class="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800" @click="router.push(`/endpoints/${endpoint.id}`)">编辑</button>
-                  <button class="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800" @click="toggleActive(endpoint)">
+                  <button class="app-button-secondary px-3 py-1.5 text-sm" @click="copyWebhook(endpoint)">复制 URL</button>
+                  <button class="app-button-secondary px-3 py-1.5 text-sm" @click="router.push(`/endpoints/${endpoint.id}`)">编辑</button>
+                  <button class="app-button-secondary px-3 py-1.5 text-sm" @click="toggleActive(endpoint)">
                     {{ endpoint.active ? '停用' : '启用' }}
                   </button>
-                  <button class="rounded-lg border border-amber-700 px-3 py-1.5 text-amber-200 hover:bg-amber-950" @click="resetToken(endpoint)">重置 token</button>
-                  <button class="rounded-lg border border-red-700 px-3 py-1.5 text-red-200 hover:bg-red-950" @click="deleteEndpoint(endpoint)">删除</button>
+                  <button class="app-button-warning px-3 py-1.5 text-sm" @click="resetToken(endpoint)">重置 token</button>
+                  <button class="app-button-danger px-3 py-1.5 text-sm" @click="deleteEndpoint(endpoint)">删除</button>
                 </div>
               </td>
             </tr>

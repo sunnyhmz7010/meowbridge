@@ -50,25 +50,41 @@ onMounted(load)
 
 <template>
   <AppLayout>
-    <div class="flex items-center justify-between gap-4">
+    <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
       <div>
-        <h1 class="text-2xl font-semibold">推送日志</h1>
-        <p class="mt-1 text-sm text-slate-400">查看 Webhook 解析结果、MeoW 响应和失败原因。</p>
+        <p class="app-muted text-sm uppercase tracking-[0.22em]">Delivery Logs</p>
+        <h1 class="app-heading mt-2 text-3xl font-semibold tracking-tight">推送日志</h1>
+        <p class="app-muted mt-2 text-sm">查看 Webhook 解析结果、MeoW 响应和失败原因。</p>
       </div>
-      <button class="rounded-xl border border-red-700 px-4 py-2 text-red-200 hover:bg-red-950" @click="cleanupOpen = true">
+      <button class="app-button-danger" @click="cleanupOpen = true">
         按保留天数清理
       </button>
     </div>
 
-    <p v-if="error" class="mt-6 rounded-xl border border-red-500/40 bg-red-950 p-4 text-sm text-red-100">{{ error }}</p>
-    <p v-else-if="loading" class="mt-6 text-sm text-slate-400">加载中...</p>
+    <div v-if="!loading && !error" class="mt-6 grid gap-4 md:grid-cols-3">
+      <section class="app-card rounded-3xl p-5">
+        <p class="app-muted text-sm">日志总数</p>
+        <p class="mt-2 text-3xl font-semibold">{{ logs.length }}</p>
+      </section>
+      <section class="app-card rounded-3xl p-5">
+        <p class="app-muted text-sm">成功</p>
+        <p class="mt-2 text-3xl font-semibold">{{ logs.filter((log) => log.success).length }}</p>
+      </section>
+      <section class="app-card rounded-3xl p-5">
+        <p class="app-muted text-sm">失败</p>
+        <p class="mt-2 text-3xl font-semibold">{{ logs.filter((log) => !log.success).length }}</p>
+      </section>
+    </div>
+
+    <p v-if="error" class="mt-6 rounded-xl border p-4 text-sm" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: var(--danger-soft); color: var(--danger);">{{ error }}</p>
+    <p v-else-if="loading" class="app-muted mt-6 text-sm">加载中...</p>
 
     <template v-if="!loading && !error">
       <EmptyState v-if="logs.length === 0" class="mt-6" title="暂无推送日志" description="收到 Webhook 请求后，这里会显示推送记录。" />
 
-      <div v-else class="mt-6 overflow-hidden rounded-2xl border border-slate-800">
-        <table class="w-full border-collapse text-left text-sm">
-          <thead class="bg-slate-900 text-slate-300">
+      <div v-else class="app-card mt-6 overflow-hidden rounded-3xl">
+        <table class="app-table text-sm">
+          <thead>
             <tr>
               <th class="px-4 py-3">时间</th>
               <th class="px-4 py-3">Endpoint</th>
@@ -78,23 +94,23 @@ onMounted(load)
               <th class="px-4 py-3">操作</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-800 bg-slate-950">
+          <tbody>
             <tr v-for="log in logs" :key="log.id">
-              <td class="px-4 py-3 text-slate-400">{{ formatTime(log.created_at) }}</td>
+              <td class="app-muted px-4 py-3">{{ formatTime(log.created_at) }}</td>
               <td class="px-4 py-3">{{ log.endpoint_name }}</td>
-              <td class="px-4 py-3 text-slate-300">{{ log.source_type }}</td>
+              <td class="app-muted px-4 py-3">{{ log.source_type }}</td>
               <td class="px-4 py-3">
                 <p class="max-w-sm truncate">{{ log.parsed_title || '-' }}</p>
-                <p class="mt-1 max-w-sm truncate text-xs text-slate-500">{{ log.parsed_msg }}</p>
+                <p class="app-muted mt-1 max-w-sm truncate text-xs">{{ log.parsed_msg }}</p>
               </td>
               <td class="px-4 py-3">
-                <span class="rounded-full px-2 py-1 text-xs" :class="log.success ? 'bg-emerald-950 text-emerald-200' : 'bg-red-950 text-red-200'">
+                <span class="app-badge" :class="log.success ? 'app-badge-success' : 'app-badge-danger'">
                   {{ log.success ? '成功' : '失败' }} / {{ log.meow_status_code || '-' }}
                 </span>
-                <p v-if="log.error_message" class="mt-1 max-w-xs truncate text-xs text-red-300">{{ log.error_message }}</p>
+                <p v-if="log.error_message" class="mt-1 max-w-xs truncate text-xs" style="color: var(--danger);">{{ log.error_message }}</p>
               </td>
               <td class="px-4 py-3">
-                <button class="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800" @click="router.push(`/logs/${log.id}`)">
+                <button class="app-button-secondary px-3 py-1.5 text-sm" @click="router.push(`/logs/${log.id}`)">
                   详情
                 </button>
               </td>

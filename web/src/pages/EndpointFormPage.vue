@@ -80,72 +80,81 @@ onMounted(load)
 
 <template>
   <AppLayout>
-    <button class="mb-6 text-sm text-slate-400 hover:text-slate-100" @click="router.push('/endpoints')">← 返回 Endpoint</button>
-    <h1 class="text-2xl font-semibold">{{ isEdit ? '编辑 Endpoint' : '新建 Endpoint' }}</h1>
-    <p class="mt-1 text-sm text-slate-400">Endpoint 会生成标准 Webhook URL，外部服务可直接填写。</p>
+    <button class="app-button-ghost mb-6 text-sm" @click="router.push('/endpoints')">← 返回 Endpoint</button>
+    <p class="app-muted text-sm uppercase tracking-[0.22em]">Endpoint Form</p>
+    <h1 class="app-heading mt-2 text-3xl font-semibold tracking-tight">{{ isEdit ? '编辑 Endpoint' : '新建 Endpoint' }}</h1>
+    <p class="app-muted mt-2 text-sm">Endpoint 会生成标准 Webhook URL，外部服务可直接填写。</p>
 
-    <p v-if="error" class="mt-6 rounded-xl border border-red-500/40 bg-red-950 p-4 text-sm text-red-100">{{ error }}</p>
-    <p v-if="loading" class="mt-6 text-sm text-slate-400">加载中...</p>
+    <p v-if="error" class="mt-6 rounded-xl border p-4 text-sm" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: var(--danger-soft); color: var(--danger);">{{ error }}</p>
+    <p v-if="loading" class="app-muted mt-6 text-sm">加载中...</p>
     <div v-else-if="error" class="mt-6">
-      <button class="rounded-xl border border-slate-700 px-4 py-2" @click="router.push('/endpoints')">返回 Endpoint 列表</button>
+      <button class="app-button-secondary" @click="router.push('/endpoints')">返回 Endpoint 列表</button>
     </div>
 
-    <form v-else class="mt-6 grid gap-5 rounded-2xl border border-slate-800 bg-slate-900 p-6" @submit.prevent="submit">
-      <label class="grid gap-2 text-sm text-slate-300">
-        名称
-        <input v-model="form.name" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100" required />
-      </label>
-
-      <label class="grid gap-2 text-sm text-slate-300">
-        MeoW nickname
-        <input
-          v-model="form.meow_nickname"
-          class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 disabled:opacity-60"
-          :disabled="isEdit"
-          required
-        />
-        <span v-if="isEdit" class="text-xs text-slate-500">创建后不可修改。</span>
-      </label>
-
-      <label class="grid gap-2 text-sm text-slate-300">
-        默认标题
-        <input v-model="form.default_title" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100" />
-      </label>
-
-      <div class="grid gap-5 md:grid-cols-2">
-        <label class="grid gap-2 text-sm text-slate-300">
-          消息类型
-          <select v-model="form.msg_type" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100">
-            <option value="text">text</option>
-            <option value="html">html</option>
-            <option value="markdown">markdown</option>
-          </select>
+    <form v-else class="app-card mt-6 grid gap-6 rounded-3xl p-6" @submit.prevent="submit">
+      <section class="grid gap-5 lg:grid-cols-2">
+        <label class="app-muted grid gap-2 text-sm">
+          名称
+          <input v-model="form.name" class="app-input" required />
         </label>
 
-        <label class="grid gap-2 text-sm text-slate-300">
-          HTML 高度
-          <input v-model.number="form.html_height" min="1" type="number" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100" />
+        <label class="app-muted grid gap-2 text-sm">
+          MeoW nickname
+          <input
+            v-model="form.meow_nickname"
+            class="app-input disabled:opacity-60"
+            :disabled="isEdit"
+            required
+          />
+          <span v-if="isEdit" class="app-muted text-xs">创建后不可修改。</span>
         </label>
-      </div>
+      </section>
 
-      <label class="grid gap-2 text-sm text-slate-300">
-        默认跳转 URL
-        <input v-model="form.default_url" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100" />
-      </label>
+      <section class="app-card-muted grid gap-5 rounded-2xl p-5">
+        <h2 class="app-heading font-semibold">默认消息</h2>
+        <label class="app-muted grid gap-2 text-sm">
+          默认标题
+          <input v-model="form.default_title" class="app-input" />
+        </label>
 
-      <label class="grid gap-2 text-sm text-slate-300">
-        默认图标 URL
-        <input v-model="form.default_img_url" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100" />
-      </label>
+        <div class="grid gap-5 md:grid-cols-2">
+          <label class="app-muted grid gap-2 text-sm">
+            消息类型
+            <select v-model="form.msg_type" class="app-input">
+              <option value="text">text</option>
+              <option value="html">html</option>
+              <option value="markdown">markdown</option>
+            </select>
+          </label>
 
-      <label class="flex items-center gap-3 text-sm text-slate-300">
+          <label class="app-muted grid gap-2 text-sm">
+            HTML 高度
+            <input v-model.number="form.html_height" min="1" type="number" class="app-input" />
+          </label>
+        </div>
+      </section>
+
+      <section class="app-card-muted grid gap-5 rounded-2xl p-5">
+        <h2 class="app-heading font-semibold">跳转与图标</h2>
+        <label class="app-muted grid gap-2 text-sm">
+          默认跳转 URL
+          <input v-model="form.default_url" class="app-input" />
+        </label>
+
+        <label class="app-muted grid gap-2 text-sm">
+          默认图标 URL
+          <input v-model="form.default_img_url" class="app-input" />
+        </label>
+      </section>
+
+      <label class="app-muted flex items-center gap-3 text-sm">
         <input v-model="form.active" type="checkbox" class="h-4 w-4" />
         启用 endpoint
       </label>
 
       <div class="flex justify-end gap-3">
-        <button type="button" class="rounded-xl border border-slate-700 px-4 py-2" @click="router.push('/endpoints')">取消</button>
-        <button class="rounded-xl bg-cyan-500 px-4 py-2 font-medium text-slate-950 hover:bg-cyan-400 disabled:opacity-60" :disabled="saving">
+        <button type="button" class="app-button-secondary" @click="router.push('/endpoints')">取消</button>
+        <button class="app-button-primary disabled:opacity-60" :disabled="saving">
           {{ saving ? '保存中...' : '保存' }}
         </button>
       </div>

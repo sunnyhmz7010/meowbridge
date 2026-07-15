@@ -6,6 +6,7 @@ import AppLayout from '@/components/AppLayout.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { showToast } from '@/components/toast'
 import { authStore } from '@/stores/auth'
+import { themeStore, type ThemePreference } from '@/stores/theme'
 
 const router = useRouter()
 const loading = ref(true)
@@ -30,6 +31,10 @@ const passwordForm = reactive({
 function applySettings(values: Record<string, string>): void {
   settings.log_retention_days = values.log_retention_days ?? '14'
   original.log_retention_days = settings.log_retention_days
+}
+
+function setTheme(event: Event): void {
+  themeStore.setPreference((event.target as HTMLSelectElement).value as ThemePreference)
 }
 
 async function load(): Promise<void> {
@@ -93,42 +98,56 @@ onMounted(load)
 
 <template>
   <AppLayout>
-    <h1 class="text-2xl font-semibold">设置</h1>
-    <p class="mt-1 text-sm text-slate-400">更新日志保留和管理员密码。</p>
+    <p class="app-muted text-sm uppercase tracking-[0.22em]">Preferences</p>
+    <h1 class="app-heading mt-2 text-3xl font-semibold tracking-tight">设置</h1>
+    <p class="app-muted mt-2 text-sm">更新显示偏好、日志保留和管理员密码。</p>
 
-    <p v-if="error" class="mt-6 rounded-xl border border-red-500/40 bg-red-950 p-4 text-sm text-red-100">{{ error }}</p>
-    <p v-else-if="loading" class="mt-6 text-sm text-slate-400">加载中...</p>
+    <p v-if="error" class="mt-6 rounded-xl border p-4 text-sm" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: var(--danger-soft); color: var(--danger);">{{ error }}</p>
+    <p v-else-if="loading" class="app-muted mt-6 text-sm">加载中...</p>
 
-    <div v-else class="mt-6 grid gap-6">
-      <form class="rounded-2xl border border-slate-800 bg-slate-900 p-6" @submit.prevent="saveSettings">
-        <h2 class="text-lg font-semibold">服务设置</h2>
+    <div v-else class="mt-6 grid gap-6 xl:grid-cols-2">
+      <section class="app-card rounded-3xl p-6">
+        <h2 class="app-heading text-lg font-semibold">显示偏好</h2>
+        <p class="app-muted mt-1 text-sm">选择后台主题，或跟随系统设置。</p>
+        <label class="app-muted mt-5 grid gap-2 text-sm">
+          主题模式
+          <select class="app-input" :value="themeStore.preference.value" @change="setTheme">
+            <option value="system">跟随系统</option>
+            <option value="light">亮色</option>
+            <option value="dark">暗色</option>
+          </select>
+        </label>
+      </section>
+
+      <form class="app-card rounded-3xl p-6" @submit.prevent="saveSettings">
+        <h2 class="app-heading text-lg font-semibold">服务设置</h2>
         <div class="mt-5 grid gap-5">
-          <label class="grid gap-2 text-sm text-slate-300">
+          <label class="app-muted grid gap-2 text-sm">
             日志保留天数
-            <input v-model="settings.log_retention_days" min="1" type="number" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100" required />
+            <input v-model="settings.log_retention_days" min="1" type="number" class="app-input" required />
           </label>
         </div>
         <div class="mt-6 flex justify-end">
-          <button class="rounded-xl bg-cyan-500 px-4 py-2 font-medium text-slate-950 hover:bg-cyan-400 disabled:opacity-60" :disabled="savingSettings">
+          <button class="app-button-primary disabled:opacity-60" :disabled="savingSettings">
             {{ savingSettings ? '保存中...' : '保存设置' }}
           </button>
         </div>
       </form>
 
-      <form class="rounded-2xl border border-slate-800 bg-slate-900 p-6" @submit.prevent="passwordConfirmOpen = true">
-        <h2 class="text-lg font-semibold">修改密码</h2>
+      <form class="app-card rounded-3xl p-6 xl:col-span-2" @submit.prevent="passwordConfirmOpen = true">
+        <h2 class="app-heading text-lg font-semibold">修改密码</h2>
         <div class="mt-5 grid gap-5">
-          <label class="grid gap-2 text-sm text-slate-300">
+          <label class="app-muted grid gap-2 text-sm">
             当前密码
-            <input v-model="passwordForm.old_password" type="password" autocomplete="current-password" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100" required />
+            <input v-model="passwordForm.old_password" type="password" autocomplete="current-password" class="app-input" required />
           </label>
-          <label class="grid gap-2 text-sm text-slate-300">
+          <label class="app-muted grid gap-2 text-sm">
             新密码
-            <input v-model="passwordForm.new_password" type="password" autocomplete="new-password" class="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100" required />
+            <input v-model="passwordForm.new_password" type="password" autocomplete="new-password" class="app-input" required />
           </label>
         </div>
         <div class="mt-6 flex justify-end">
-          <button class="rounded-xl border border-amber-700 px-4 py-2 text-amber-200 hover:bg-amber-950">
+          <button class="app-button-warning">
             修改密码
           </button>
         </div>
