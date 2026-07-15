@@ -14,28 +14,44 @@
 
 ---
 
-## ✨ 为什么做这个应用
+## ✨ 为什么做这个服务
 
-MeoW Push 只有昵称作为入口标识，多场景共用时容易混淆，也不利于隔离泄露风险。meowbridge 提供独立 token 入口，把 Webhook 自动解析并转发到指定 MeoW 。
+MeoW Push 仅支持一个昵称作为唯一标识，多场景共用时容易混淆，且昵称是公开链接的一部分，一旦泄露牵连全部服务对象。meowbridge 提供独立 token 入口，把 GitHub、Grafana、Prometheus、Jenkins、Zabbix、Gotify、Emby 等常见 Webhook 自动解析并转发到指定 MeoW 昵称。
 
 ## 🚀 核心能力
 
-- 通用 Webhook 入口：外部服务填写 `/webhook/{token}` 即可推送。
-- 内置常见服务解析器：自动提取标题、正文、链接和消息类型。
-- 未识别 payload 兜底：格式化完整 JSON 推送，优先保证消息不丢。
-- 管理 API：创建、启停、删除、重置推送入口。
-- 浏览器管理后台：登录后管理推送入口、日志和 MeoW 设置。
-- 推送日志：记录原始 payload、解析结果、MeoW 响应和失败原因。
+### 🌐 通用 Webhook 入口
+
+- 外部服务填写 `/webhook/{token}` 即可推送
+- 纯文本请求直接以文本内容推送
+- 未识别 payload 格式化完整 JSON 兜底，优先保证消息不丢
+
+### 🧠 内置常见服务解析器
+
+- 支持 9 种预设解析器：GitHub PR、GitHub Actions、GitHub、Jenkins、Grafana 告警、Prometheus Alertmanager、Zabbix、Gotify、Emby
+- 自动提取标题、正文、链接和消息类型
+- 通用 fallback 按 `title`/`msg`/`url`/`imgUrl` 等字段名匹配
+
+### 📊 配置优先级
+
+- 请求参数 / 映射值优先于接口预设，接口预设优先于 MeoW 默认值
+- 支持 `msgType` / `url` / `imgUrl` / `htmlHeight` 等 query 参数实时覆盖
+
+### 🛠 管理后台
+
+- 浏览器中管理推送入口、推送日志和全局设置
+- 管理员密码登录、JWT Bearer 鉴权
+- 推送入口支持创建、启停、删除、重置 token
 
 ## ⚡ 快速开始
 
-### 前置要求
+### 📋 运行要求
 
 - Go 1.23 或更高版本
 - 可访问的 MeoW API Base URL
 - 用于管理后台的管理员密码和 JWT Secret
 
-### 安装与运行
+### 🚀 本地运行
 
 ```powershell
 $env:ADMIN_PASSWORD="change-me"
@@ -44,7 +60,7 @@ $env:MEOW_API_BASE_URL="https://api.chuckfang.com"
 go run ./cmd/meowbridge
 ```
 
-### Docker Compose
+### 📦 Docker Compose
 
 首次部署前请修改 `compose.yaml` 中的 `ADMIN_PASSWORD`、`JWT_SECRET` 和 `MEOW_API_BASE_URL`。
 
@@ -54,7 +70,7 @@ docker compose up -d
 
 默认 Compose 会监听 `8080`，并将 SQLite 数据持久化到 `meowbridge-data` volume。
 
-### Docker 镜像
+### 🐳 Docker 镜像
 
 ```bash
 docker run -d \
@@ -62,42 +78,86 @@ docker run -d \
   -p 8080:8080 \
   -v meowbridge-data:/data \
   -e ADMIN_PASSWORD=change-me \
-  -e JWT_SECRET=replace-with-long-random-secret \
-  -e MEOW_API_BASE_URL=https://api.chuckfang.com \
+  -e JWT_SECRET="replace-with-long-random-secret" \
+  -e MEOW_API_BASE_URL="https://api.chuckfang.com" \
   ghcr.io/sunnyhmz7010/meowbridge:latest
 ```
 
-### Release 下载
-
-版本发布页提供 Linux `amd64` 和 `arm64` 二进制包，以及 `checksums.txt` 校验文件。下载后解压并按环境变量说明启动即可。
-
 ## 📖 使用说明
 
-启动服务后访问 `http://localhost:8080/admin/` 进入管理后台。首次启动使用 `ADMIN_PASSWORD` 环境变量设置管理员密码。
+启动后访问 `http://localhost:8080/admin/` 进入管理后台。首次启动使用 `ADMIN_PASSWORD` 环境变量设置管理员密码。
 
-创建 endpoint 后，将生成的 Webhook 地址填入外部服务：
+创建推送入口后，将生成的地址填入外部服务：
 
 ```text
 https://your-domain.example/webhook/{token}
 ```
 
-纯文本推送：
+支持 query 参数覆盖：
+
+| 参数 | 说明 |
+|------|------|
+| `msgType` | 覆盖消息类型：text / html / markdown |
+| `url` | 覆盖跳转链接 |
+| `imgUrl` | 覆盖通知图标 URL |
+
+推送示例：
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri "http://localhost:8080/webhook/{token}" -ContentType "text/plain" -Body "hello meowbridge"
 ```
 
-JSON 推送：
-
 ```powershell
 Invoke-RestMethod -Method Post -Uri "http://localhost:8080/webhook/{token}" -ContentType "application/json" -Body '{"title":"Build","message":"passed"}'
 ```
 
+## 📸 截图预览
+
+### 推送入口管理
+
+列表页展示所有入口的 ID、名称、Token、当前状态。可点击启停开关切换启用/禁用状态。
+
+### 推送日志
+
+列表页展示最近 200 条推送记录，显示来源服务、解析结果、推送状态和错误信息。
+
+### 全局设置
+
+配置 MeoW API 地址、日志保留天数，以及修改管理员密码。
+
 ## 🧠 功能细节
 
-Webhook 请求会按解析器链处理：GitHub Pull Request、GitHub Actions、GitHub、Jenkins、Grafana、Prometheus Alertmanager、Zabbix、Gotify、Emby、Generic、Fallback。字段优先级为 query 覆盖、解析器输出、endpoint 默认值、MeoW 默认值。
+### 消息合并优先级
 
-管理后台通过 `/admin/` 访问，前端资源内嵌在 Go 二进制中。生产运行时不需要单独启动前端服务。
+```
+P1 — 请求参数 / Webhook 映射（最高）
+P2 — 推送接口预设值
+P3 — MeoW 默认值（最低）
+```
+
+| 参数 | P1 请求/映射 | P2 接口预设 | P3 MeoW 默认 |
+|------|------------|------------|------------|
+| `meow_nickname` | — | ✅ 创建后不可修改 | — |
+| `title` | ✅ | ✅ | `"Meow"` |
+| `msg` | ✅ 必须提供 | — | —（不允许默认） |
+| `msgType` | ✅ | ✅ | `"text"` |
+| `htmlHeight` | ✅ (query) | ✅ | `200` |
+| `url` | ✅ | ✅ | 不传 |
+| `imgUrl` | ✅ | ✅ | 不传 |
+
+### 预设解析器
+
+| 来源 | 展示名称 | 推荐 msgType | title 映射 | msg 映射 |
+|------|---------|-------------|-----------|---------|
+| `github_pr` | GitHub PullRequest | markdown | `$.pull_request.title` | `$.pull_request.body` |
+| `github_action` | GitHub Actions | markdown | `$.workflow_run.event` | `$.workflow_run.head_commit.message` |
+| `github` | GitHub Webhook | text | `$.action` | `$.repository.full_name` |
+| `jenkins` | Jenkins | text | `$.project.name` | `$.build.full_display_url` |
+| `grafana` | Grafana 告警 | markdown | `$.alerts[0].labels.alertname` | `$.alerts[0].annotations.message` |
+| `prometheus` | Prometheus AlertManager | markdown | `$.alerts[0].labels.alertname` | `$.alerts[0].annotations.description` |
+| `zabbix` | Zabbix | markdown | `$.trigger.description` | `$.event.description` |
+| `gotify` | Gotify | markdown | `$.title` | `$.message` |
+| `emby` | Emby | text | `$.Title` | `$.Description` |
 
 ## 🧱 技术栈
 
@@ -110,7 +170,6 @@ Webhook 请求会按解析器链处理：GitHub Pull Request、GitHub Actions、
 - Vite
 - TypeScript
 - Docker
-- GitHub Actions
 
 ## 🗂️ 项目结构
 
@@ -128,7 +187,7 @@ meowbridge/
 │   ├── token/          # Webhook token 生成
 │   ├── webhook/        # Payload 解析与消息合并
 │   └── webui/          # 管理后台内嵌静态资源
-├── web/                # Vue 管理后台源码
+├── web/                # Vue 3 管理后台源码
 ├── compose.yaml        # Docker Compose 单服务部署示例
 ├── Dockerfile          # 容器镜像构建配置
 ├── SECURITY.md
@@ -138,12 +197,12 @@ meowbridge/
 
 ## 👨‍💻 本地开发
 
-### 环境
+### 🧰 环境
 
 - Go 1.23+
 - Node.js 20+ 与 npm
 
-### 命令
+### 🔨 命令
 
 ```bash
 go test ./...
@@ -156,7 +215,7 @@ npm run build
 
 ## 🔐 安全报告
 
-如果发现安全问题，请不要公开披露细节。请优先参考仓库中的 [SECURITY.md](./SECURITY.md) 提交安全报告。
+如发现安全问题，请不要公开披露细节。请优先参考仓库中的 [SECURITY.md](./SECURITY.md) 提交安全报告。
 
 ## 📄 许可证
 
@@ -164,8 +223,6 @@ npm run build
 
 ## ⭐ 星标历史
 
-[![Star History Chart](https://api.star-history.com/svg?repos=sunnyhmz7010/meowbridge)](https://star-history.com/#sunnyhmz7010/meowbridge)
+  [![Star History Chart](https://api.star-history.com/svg?repos=sunnyhmz7010/meowbridge)](https://star-history.com/#sunnyhmz7010/meowbridge)
 
-<div align="center">
-  <sub>Built with ❤️ by Sunny</sub>
-</div>
+Built with ❤️ by Sunny
