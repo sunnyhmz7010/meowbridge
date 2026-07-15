@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.23.x'
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: web
+        run: npm run test
+
+      - name: Run frontend type check
+        working-directory: web
+        run: npm run type-check
+
+      - name: Build frontend
+        working-directory: web
+        run: npm run build
+
+      - name: Copy frontend assets for Go embed
+        run: |
+          rm -rf internal/webui/dist
+          mkdir -p internal/webui/dist
+          cp -R web/dist/. internal/webui/dist/
+
+      - name: Run Go tests
+        run: go test ./...
+
+      - name: Build Linux binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            output="dist/meowbridge-linux-${arch}"
+            mkdir -p "${output}"
+            GOOS=linux GOARCH="${arch}" CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "${output}/meowbridge" ./cmd/meowbridge
+            tar -C "${output}" -czf "dist/meowbridge-linux-${arch}.tar.gz" meowbridge
+          done
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum *.tar.gz > checksums.txt
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          printf "## 更新内容\n\n" > release-notes.md
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="$TAG_NAME" \
+            --jq .body >> release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG_NAME" \
+            dist/meowbridge-linux-amd64.tar.gz \
+            dist/meowbridge-linux-arm64.tar.gz \
+            dist/checksums.txt \
+            --title "$TAG_NAME" \
+            --notes-file release-notes.md
