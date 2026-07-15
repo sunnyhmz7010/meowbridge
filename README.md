@@ -44,6 +44,33 @@ $env:MEOW_API_BASE_URL="https://api.chuckfang.com"
 go run ./cmd/meowbridge
 ```
 
+### Docker Compose
+
+首次部署前请修改 `compose.yaml` 中的 `ADMIN_PASSWORD`、`JWT_SECRET` 和 `MEOW_API_BASE_URL`。
+
+```bash
+docker compose up -d
+```
+
+默认 Compose 会监听 `8080`，并将 SQLite 数据持久化到 `meowbridge-data` volume。
+
+### Docker 镜像
+
+```bash
+docker run -d \
+  --name meowbridge \
+  -p 8080:8080 \
+  -v meowbridge-data:/data \
+  -e ADMIN_PASSWORD=change-me \
+  -e JWT_SECRET=replace-with-long-random-secret \
+  -e MEOW_API_BASE_URL=https://api.chuckfang.com \
+  ghcr.io/sunnyhmz7010/meowbridge:latest
+```
+
+### Release 下载
+
+版本发布页提供 Linux `amd64` 和 `arm64` 二进制包，以及 `checksums.txt` 校验文件。下载后解压并按环境变量说明启动即可。
+
 ## 📖 使用说明
 
 启动服务后访问 `http://localhost:8080/admin/` 进入管理后台。首次启动使用 `ADMIN_PASSWORD` 环境变量设置管理员密码。
@@ -82,6 +109,8 @@ Webhook 请求会按解析器链处理：GitHub Pull Request、GitHub Actions、
 - Vue 3
 - Vite
 - TypeScript
+- Docker
+- GitHub Actions
 
 ## 🗂️ 项目结构
 
@@ -100,6 +129,8 @@ meowbridge/
 │   ├── webhook/        # Payload 解析与消息合并
 │   └── webui/          # 管理后台内嵌静态资源
 ├── web/                # Vue 管理后台源码
+├── compose.yaml        # Docker Compose 单服务部署示例
+├── Dockerfile          # 容器镜像构建配置
 ├── SECURITY.md
 ├── LICENSE
 └── README.md
