@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,6 +49,7 @@ func TestAdminRouteDoesNotCaptureWebhookRoute(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusNotFound)
 	}
+	assertTokenNotFoundJSON(t, rr)
 }
 
 func TestAdminRouteDoesNotCaptureVerifyRoute(t *testing.T) {
@@ -61,6 +63,7 @@ func TestAdminRouteDoesNotCaptureVerifyRoute(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusNotFound)
 	}
+	assertTokenNotFoundJSON(t, rr)
 }
 
 func TestAdminRouteDisabledWhenUIIsNotBuilt(t *testing.T) {
@@ -72,5 +75,15 @@ func TestAdminRouteDisabledWhenUIIsNotBuilt(t *testing.T) {
 
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusNotFound)
+	}
+}
+
+func assertTokenNotFoundJSON(t *testing.T, rr *httptest.ResponseRecorder) {
+	t.Helper()
+	if contentType := rr.Header().Get("Content-Type"); !strings.Contains(contentType, "application/json") {
+		t.Fatalf("Content-Type = %q, want application/json", contentType)
+	}
+	if body := rr.Body.String(); !strings.Contains(body, `"error":"token not found"`) {
+		t.Fatalf("body = %q, want token not found JSON error", body)
 	}
 }
