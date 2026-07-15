@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sunnyhmz7010/meowbridge/internal/webui"
 )
 
 func NewRouter(deps Dependencies) http.Handler {
@@ -31,5 +32,10 @@ func NewRouter(deps Dependencies) http.Handler {
 			r.Get("/webhook/presets", api.handleWebhookPresets)
 		})
 	})
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admin/", http.StatusFound)
+	})
+	r.Handle("/admin", http.RedirectHandler("/admin/", http.StatusFound))
+	r.Handle("/admin/*", webui.DisabledHandler())
 	return r
 }
