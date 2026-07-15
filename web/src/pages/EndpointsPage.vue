@@ -143,56 +143,58 @@ onMounted(load)
       <code class="mt-2 block break-all rounded-lg bg-slate-950 p-3 text-amber-50">{{ copyFallbackURL }}</code>
     </div>
 
-    <EmptyState
-      v-else-if="!loading && !error && endpoints.length === 0"
-      class="mt-6"
-      title="还没有 endpoint"
-      description="创建第一个 endpoint 后，即可复制 Webhook URL 到外部服务。"
-    >
-      <button class="rounded-xl bg-cyan-500 px-4 py-2 font-medium text-slate-950 hover:bg-cyan-400" @click="router.push('/endpoints/new')">
-        新建 Endpoint
-      </button>
-    </EmptyState>
+    <template v-if="!loading && !error">
+      <EmptyState
+        v-if="endpoints.length === 0"
+        class="mt-6"
+        title="还没有 endpoint"
+        description="创建第一个 endpoint 后，即可复制 Webhook URL 到外部服务。"
+      >
+        <button class="rounded-xl bg-cyan-500 px-4 py-2 font-medium text-slate-950 hover:bg-cyan-400" @click="router.push('/endpoints/new')">
+          新建 Endpoint
+        </button>
+      </EmptyState>
 
-    <div v-else class="mt-6 overflow-hidden rounded-2xl border border-slate-800">
-      <table class="w-full border-collapse text-left text-sm">
-        <thead class="bg-slate-900 text-slate-300">
-          <tr>
-            <th class="px-4 py-3">名称</th>
-            <th class="px-4 py-3">MeoW nickname</th>
-            <th class="px-4 py-3">消息类型</th>
-            <th class="px-4 py-3">状态</th>
-            <th class="px-4 py-3">操作</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-800 bg-slate-950">
-          <tr v-for="endpoint in endpoints" :key="endpoint.id">
-            <td class="px-4 py-3">
-              <p class="font-medium">{{ endpoint.name }}</p>
-              <p class="mt-1 max-w-xs truncate text-xs text-slate-500">{{ endpoint.default_title || '无默认标题' }}</p>
-            </td>
-            <td class="px-4 py-3 text-slate-300">{{ endpoint.meow_nickname }}</td>
-            <td class="px-4 py-3 text-slate-300">{{ endpoint.msg_type }}</td>
-            <td class="px-4 py-3">
-              <span class="rounded-full px-2 py-1 text-xs" :class="endpoint.active ? 'bg-emerald-950 text-emerald-200' : 'bg-slate-800 text-slate-300'">
-                {{ endpoint.active ? '启用' : '停用' }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex flex-wrap gap-2">
-                <button class="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800" @click="copyWebhook(endpoint)">复制 URL</button>
-                <button class="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800" @click="router.push(`/endpoints/${endpoint.id}`)">编辑</button>
-                <button class="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800" @click="toggleActive(endpoint)">
-                  {{ endpoint.active ? '停用' : '启用' }}
-                </button>
-                <button class="rounded-lg border border-amber-700 px-3 py-1.5 text-amber-200 hover:bg-amber-950" @click="resetToken(endpoint)">重置 token</button>
-                <button class="rounded-lg border border-red-700 px-3 py-1.5 text-red-200 hover:bg-red-950" @click="deleteEndpoint(endpoint)">删除</button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+      <div v-else class="mt-6 overflow-hidden rounded-2xl border border-slate-800">
+        <table class="w-full border-collapse text-left text-sm">
+          <thead class="bg-slate-900 text-slate-300">
+            <tr>
+              <th class="px-4 py-3">名称</th>
+              <th class="px-4 py-3">MeoW nickname</th>
+              <th class="px-4 py-3">消息类型</th>
+              <th class="px-4 py-3">状态</th>
+              <th class="px-4 py-3">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800 bg-slate-950">
+            <tr v-for="endpoint in endpoints" :key="endpoint.id">
+              <td class="px-4 py-3">
+                <p class="font-medium">{{ endpoint.name }}</p>
+                <p class="mt-1 max-w-xs truncate text-xs text-slate-500">{{ endpoint.default_title || '无默认标题' }}</p>
+              </td>
+              <td class="px-4 py-3 text-slate-300">{{ endpoint.meow_nickname }}</td>
+              <td class="px-4 py-3 text-slate-300">{{ endpoint.msg_type }}</td>
+              <td class="px-4 py-3">
+                <span class="rounded-full px-2 py-1 text-xs" :class="endpoint.active ? 'bg-emerald-950 text-emerald-200' : 'bg-slate-800 text-slate-300'">
+                  {{ endpoint.active ? '启用' : '停用' }}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap gap-2">
+                  <button class="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800" @click="copyWebhook(endpoint)">复制 URL</button>
+                  <button class="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800" @click="router.push(`/endpoints/${endpoint.id}`)">编辑</button>
+                  <button class="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800" @click="toggleActive(endpoint)">
+                    {{ endpoint.active ? '停用' : '启用' }}
+                  </button>
+                  <button class="rounded-lg border border-amber-700 px-3 py-1.5 text-amber-200 hover:bg-amber-950" @click="resetToken(endpoint)">重置 token</button>
+                  <button class="rounded-lg border border-red-700 px-3 py-1.5 text-red-200 hover:bg-red-950" @click="deleteEndpoint(endpoint)">删除</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
 
     <ConfirmDialog
       :open="confirmState.open"
