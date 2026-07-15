@@ -144,7 +144,7 @@ onMounted(load)
     </div>
 
     <EmptyState
-      v-else-if="endpoints.length === 0"
+      v-else-if="!loading && !error && endpoints.length === 0"
       class="mt-6"
       title="还没有 endpoint"
       description="创建第一个 endpoint 后，即可复制 Webhook URL 到外部服务。"
