@@ -57,6 +57,24 @@ func TestHandlerDoesNotFallbackForMissingAssets(t *testing.T) {
 	}
 }
 
+func TestHandlerRejectsPathTraversal(t *testing.T) {
+	handler := NewHandler(fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte("<html>admin</html>")},
+		"secret.txt": &fstest.MapFile{Data: []byte("secret")},
+	}, true)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/../secret.txt", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusNotFound)
+	}
+	if strings.Contains(rr.Body.String(), "secret") {
+		t.Fatalf("body leaked secret: %q", rr.Body.String())
+	}
+}
+
 func TestDisabledHandlerReturnsNotFound(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/admin/", nil)
 	rr := httptest.NewRecorder()

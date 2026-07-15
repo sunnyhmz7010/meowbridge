@@ -32,6 +32,10 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = "index.html"
 	}
+	if hasPathTraversal(name) {
+		http.NotFound(w, r)
+		return
+	}
 	name = path.Clean("/" + name)[1:]
 	if strings.HasPrefix(name, "..") {
 		http.NotFound(w, r)
@@ -54,6 +58,15 @@ func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func isFile(fsys fs.FS, name string) bool {
 	info, err := fs.Stat(fsys, name)
 	return err == nil && !info.IsDir()
+}
+
+func hasPathTraversal(name string) bool {
+	for _, segment := range strings.Split(name, "/") {
+		if segment == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 func (h Handler) serveFile(w http.ResponseWriter, r *http.Request, name string) {
