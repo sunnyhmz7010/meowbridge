@@ -9,6 +9,7 @@ import type {
 
 type SuccessResponse<T> = { ok: true; data: T }
 type ErrorResponse = { ok: false; error: string }
+type RequestOptions = { skipUnauthorizedHandler?: boolean }
 
 let tokenProvider: () => string | null = () => localStorage.getItem('meowbridge_token')
 let unauthorizedHandler: () => void = () => {}
@@ -77,7 +78,11 @@ export function normalizePushLog(input: PushLog): Required<PushLogListItem> & {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  options: RequestOptions = {},
+): Promise<T> {
   const headers = new Headers(init.headers)
   const token = tokenProvider()
   if (token) {
@@ -101,7 +106,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     payload = { ok: false, error: '服务返回了无法解析的响应' }
   }
 
-  if (response.status === 401) {
+  if (response.status === 401 && !options.skipUnauthorizedHandler) {
     unauthorizedHandler()
   }
 
@@ -176,9 +181,13 @@ export const apiClient = {
     })
   },
   async changePassword(oldPassword: string, newPassword: string): Promise<{ changed: boolean }> {
-    return request<{ changed: boolean }>('/api/admin/change-password', {
-      method: 'POST',
-      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
-    })
+    return request<{ changed: boolean }>(
+      '/api/admin/change-password',
+      {
+        method: 'POST',
+        body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+      },
+      { skipUnauthorizedHandler: true },
+    )
   },
 }

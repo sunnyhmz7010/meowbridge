@@ -61,6 +61,21 @@ describe('apiClient', () => {
     await expect(apiClient.listEndpoints()).rejects.toBeInstanceOf(ApiError)
     expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
+
+  it('does not treat a wrong current password as an expired login', async () => {
+    const onUnauthorized = vi.fn()
+    setUnauthorizedHandler(onUnauthorized)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json({ ok: false, error: 'invalid credentials' }, { status: 401 })),
+    )
+
+    await expect(apiClient.changePassword('wrong', 'new-secret')).rejects.toMatchObject({
+      status: 401,
+      message: 'invalid credentials',
+    })
+    expect(onUnauthorized).not.toHaveBeenCalled()
+  })
 })
 
 describe('normalizeEndpoint', () => {

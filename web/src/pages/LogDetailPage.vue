@@ -51,6 +51,7 @@ onMounted(load)
         <dl class="mt-4 grid gap-3 text-sm md:grid-cols-2">
           <div><dt class="text-slate-500">Endpoint</dt><dd>{{ log.endpoint_name }}</dd></div>
           <div><dt class="text-slate-500">Source Type</dt><dd>{{ log.source_type }}</dd></div>
+          <div><dt class="text-slate-500">请求方法</dt><dd>{{ log.request_method || '-' }}</dd></div>
           <div><dt class="text-slate-500">MeoW 状态码</dt><dd>{{ log.meow_status_code || '-' }}</dd></div>
           <div><dt class="text-slate-500">结果</dt><dd>{{ log.success ? '成功' : '失败' }}</dd></div>
           <div><dt class="text-slate-500">错误</dt><dd>{{ log.error_message || '-' }}</dd></div>

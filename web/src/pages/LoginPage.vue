@@ -16,7 +16,9 @@ async function submit(): Promise<void> {
     await authStore.login(password.value)
     await router.push('/endpoints')
   } catch (err) {
-    error.value = err instanceof ApiError ? err.message : '登录失败'
+    error.value = err instanceof ApiError && err.status === 401
+      ? '密码错误或凭证无效'
+      : err instanceof ApiError ? err.message : '登录失败'
   } finally {
     loading.value = false
   }

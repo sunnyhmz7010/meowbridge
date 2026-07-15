@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { authStore } from '@/stores/auth'
-import ToastHost from './ToastHost.vue'
 
 const router = useRouter()
 
@@ -13,7 +12,6 @@ function logout(): void {
 
 <template>
   <div class="min-h-screen bg-slate-950 text-slate-100">
-    <ToastHost />
     <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
       <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <RouterLink to="/endpoints" class="text-lg font-semibold tracking-tight">meowbridge</RouterLink>
