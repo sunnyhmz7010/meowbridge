@@ -1,13 +1,16 @@
 <div align="center">
   <h1>meowbridge</h1>
-  <p>把常见 Webhook 自动转发到 MeoW 推送。</p>
+  <p>把标准 Webhook 稳定转发到 MeoW 推送。</p>
 </div>
 
 <p align="center">
-  <img alt="License" src="https://img.shields.io/github/license/sunnyhmz7010/meowbridge?color=blue" />
-  <img alt="Go" src="https://img.shields.io/badge/Go-1.23%2B-00ADD8" />
+  <img src="https://img.shields.io/github/v/tag/sunnyhmz7010/meowbridge?label=Release&color=3b82f6" alt="Release" />
+  <img src="https://img.shields.io/github/license/sunnyhmz7010/meowbridge?color=10b981" alt="License" />
+  <img src="https://img.shields.io/badge/Go-1.23%2B-00ADD8" alt="Go" />
 </p>
-<p align="center">[反馈问题](https://github.com/sunnyhmz7010/meowbridge/issues) · [下载源码](https://github.com/sunnyhmz7010/meowbridge/archive/refs/heads/main.zip)</p>
+<p align="center">
+  <a href="https://github.com/sunnyhmz7010/meowbridge/issues">反馈问题</a> · <a href="https://github.com/sunnyhmz7010/meowbridge/archive/refs/heads/main.zip">下载源码</a>
+</p>
 
 ---
 
@@ -26,6 +29,14 @@ MeoW Push 只有 nickname 作为入口标识，多场景共用时容易混淆，
 
 ## ⚡ 快速开始
 
+### 前置要求
+
+- Go 1.23 或更高版本
+- 可访问的 MeoW API Base URL
+- 用于管理后台的管理员密码和 JWT Secret
+
+### 安装与运行
+
 ```powershell
 $env:ADMIN_PASSWORD="change-me"
 $env:JWT_SECRET="replace-with-long-random-secret"
@@ -39,7 +50,9 @@ go run ./cmd/meowbridge
 
 创建 endpoint 后，将生成的 Webhook 地址填入外部服务：
 
-`https://your-domain.example/webhook/{token}`
+```text
+https://your-domain.example/webhook/{token}
+```
 
 纯文本推送：
 
@@ -57,6 +70,8 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:8080/webhook/{token}" -Con
 
 Webhook 请求会按解析器链处理：GitHub Pull Request、GitHub Actions、GitHub、Jenkins、Grafana、Prometheus Alertmanager、Zabbix、Gotify、Emby、Generic、Fallback。字段优先级为 query 覆盖、解析器输出、endpoint 默认值、MeoW 默认值。
 
+管理后台通过 `/admin/` 访问，前端资源内嵌在 Go 二进制中。生产运行时不需要单独启动前端服务。
+
 ## 🧱 技术栈
 
 - Go 1.23+
@@ -64,31 +79,48 @@ Webhook 请求会按解析器链处理：GitHub Pull Request、GitHub Actions、
 - SQLite
 - modernc.org/sqlite
 - JWT Bearer
+- Vue 3
+- Vite
+- TypeScript
 
 ## 🗂️ 项目结构
 
-<pre><code>meowbridge/
+```text
+meowbridge/
 ├── cmd/
 │   └── meowbridge/     # 服务入口与 HTTP Server 配置
 ├── internal/
 │   ├── auth/           # 管理员密码与 JWT 鉴权
 │   ├── config/         # 环境变量配置
-│   ├── httpapi/        # Webhook 与管理 API
+│   ├── httpapi/        # Webhook、管理 API 与路由
 │   ├── meow/           # MeoW 推送客户端
 │   ├── respond/        # 统一 HTTP 响应
 │   ├── store/          # SQLite 数据访问
 │   ├── token/          # Webhook token 生成
-│   └── webhook/        # Payload 解析与消息合并
+│   ├── webhook/        # Payload 解析与消息合并
+│   └── webui/          # 管理后台内嵌静态资源
+├── web/                # Vue 管理后台源码
 ├── SECURITY.md
 ├── LICENSE
 └── README.md
-</code></pre>
+```
 
 ## 👨‍💻 本地开发
 
-```powershell
+### 环境
+
+- Go 1.23+
+- Node.js 20+ 与 npm
+
+### 命令
+
+```bash
 go test ./...
-go run ./cmd/meowbridge
+cd web
+npm install
+npm run test
+npm run type-check
+npm run build
 ```
 
 ## 🔐 安全报告
@@ -97,7 +129,7 @@ go run ./cmd/meowbridge
 
 ## 📄 许可证
 
-本项目基于 [GNU General Public License v3.0](./LICENSE) 开源。
+本项目基于 [GPL-3.0](./LICENSE) 开源。
 
 ## ⭐ 星标历史
 

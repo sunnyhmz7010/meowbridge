@@ -67,7 +67,7 @@ Has the issue been patched? Which versions should be upgraded to?
 
 Even when no patch is available, project members can still mitigate the risk of the security vulnerability through temporary measures such as "workarounds" or "interim fixes." These workarounds may include configuring system settings, disabling the affected feature or module, or implementing other security controls to limit exploitation of the vulnerability.
 
-即使没有可用的补丁，项目成员仍然可以通过“解决方案”或“临时修复”等临时措施来减轻安全漏洞的风险，这些解决方法可能包括配置系统设置、禁用受影响的功能或模块，或者实施其他安全控制来限制漏洞的利用。
+即使没有可用的补丁，项目成员仍然可以通过"解决方案"或"临时修复"等临时措施来减轻安全漏洞的风险，这些解决方法可能包括配置系统设置、禁用受影响的功能或模块，或者实施其他安全控制来限制漏洞的利用。
 
 Is there a way to fix or correct the vulnerability without upgrading?
 
