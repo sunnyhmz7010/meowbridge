@@ -73,9 +73,13 @@ jobs:
             tar -C "${output}" -czf "dist/meowbridge-linux-${arch}.tar.gz" meowbridge
           done
 
-      - name: Generate checksums
-        working-directory: dist
-        run: sha256sum *.tar.gz > checksums.txt
+      - name: Generate release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          printf "## 更新内容\n\n" > release-notes.md
+          git log "$(git describe --tags --abbrev=0 "$TAG_NAME^" 2>/dev/null || echo HEAD)..$TAG_NAME" --pretty=format:"- %%s" >> release-notes.md
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -110,16 +114,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Generate release notes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          printf "## 更新内容\n\n" > release-notes.md
-          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-            -f tag_name="$TAG_NAME" \
-            --jq .body >> release-notes.md
-
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -128,6 +122,5 @@ jobs:
           gh release create "$TAG_NAME" \
             dist/meowbridge-linux-amd64.tar.gz \
             dist/meowbridge-linux-arm64.tar.gz \
-            dist/checksums.txt \
             --title "$TAG_NAME" \
             --notes-file release-notes.md
