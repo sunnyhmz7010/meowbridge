@@ -29,15 +29,18 @@ const passwordForm = reactive({
   new_password: '',
 })
 
+function applySettings(values: Record<string, string>): void {
+  settings.meow_api_base_url = values.meow_api_base_url ?? ''
+  settings.log_retention_days = values.log_retention_days ?? '14'
+  original.meow_api_base_url = settings.meow_api_base_url
+  original.log_retention_days = settings.log_retention_days
+}
+
 async function load(): Promise<void> {
   loading.value = true
   error.value = ''
   try {
-    const values = await apiClient.getSettings()
-    settings.meow_api_base_url = values.meow_api_base_url ?? ''
-    settings.log_retention_days = values.log_retention_days ?? '14'
-    original.meow_api_base_url = settings.meow_api_base_url
-    original.log_retention_days = settings.log_retention_days
+    applySettings(await apiClient.getSettings())
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : '加载设置失败'
   } finally {
@@ -51,7 +54,7 @@ async function saveSettings(): Promise<void> {
     changes.meow_api_base_url = settings.meow_api_base_url
   }
   if (settings.log_retention_days !== original.log_retention_days) {
-    changes.log_retention_days = settings.log_retention_days
+    changes.log_retention_days = String(settings.log_retention_days)
   }
   if (Object.keys(changes).length === 0) {
     showToast('没有需要保存的设置', 'info')
@@ -62,9 +65,16 @@ async function saveSettings(): Promise<void> {
   try {
     await apiClient.updateSettings(changes)
     showToast('设置已保存', 'success')
-    await load()
   } catch (err) {
     showToast(err instanceof ApiError ? err.message : '保存设置失败', 'error')
+    savingSettings.value = false
+    return
+  }
+
+  try {
+    applySettings(await apiClient.getSettings())
+  } catch {
+    showToast('设置已保存，但刷新设置失败，请稍后手动刷新页面', 'error')
   } finally {
     savingSettings.value = false
   }
