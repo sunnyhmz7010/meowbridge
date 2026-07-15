@@ -1,0 +1,15 @@
+.git
+.github
+docs/superpowers
+web/node_modules
+web/dist
+node_modules
+*.db
+*.db-*
+dist
+tmp
+coverage
+.DS_Store
+*.log
+.env
+.env.*
