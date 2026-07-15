@@ -55,6 +55,8 @@ func (c *Client) Push(ctx context.Context, req PushRequest) (PushResponse, error
 	if err != nil {
 		return PushResponse{}, err
 	}
+	baseURL = strings.TrimSpace(baseURL)
+	baseURL = strings.Trim(baseURL, "\"")
 	target, err := url.Parse(strings.TrimRight(baseURL, "/") + "/" + url.PathEscape(req.Nickname))
 	if err != nil {
 		return PushResponse{}, err
