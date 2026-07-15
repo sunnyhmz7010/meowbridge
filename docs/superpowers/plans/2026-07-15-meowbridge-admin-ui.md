@@ -89,15 +89,15 @@ Modify repository config/docs:
 **Interfaces:**
 - Produces `apiClient` with methods:
   - `login(password: string): Promise<string>`
-  - `listEndpoints(): Promise<Endpoint[]>`
-  - `getEndpoint(id: number): Promise<Endpoint>`
-  - `createEndpoint(input: EndpointInput): Promise<Endpoint>`
-  - `updateEndpoint(id: number, input: EndpointUpdate): Promise<Endpoint>`
+  - `listEndpoints(): Promise<EndpointView[]>`
+  - `getEndpoint(id: number): Promise<EndpointView>`
+  - `createEndpoint(input: EndpointInput): Promise<EndpointView>`
+  - `updateEndpoint(id: number, input: EndpointUpdate): Promise<EndpointView>`
   - `deleteEndpoint(id: number): Promise<{ deleted: boolean }>`
-  - `resetEndpointToken(id: number): Promise<Endpoint>`
+  - `resetEndpointToken(id: number): Promise<EndpointView>`
   - `setEndpointActive(id: number, active: boolean): Promise<{ active: boolean }>`
   - `listPushLogs(): Promise<PushLogListItem[]>`
-  - `getPushLog(id: number): Promise<PushLog>`
+  - `getPushLog(id: number): Promise<ReturnType<typeof normalizePushLog>>`
   - `cleanupPushLogs(): Promise<{ deleted: number }>`
   - `getSettings(): Promise<Record<string, string>>`
   - `updateSettings(values: Record<string, string>): Promise<{ updated: boolean }>`
