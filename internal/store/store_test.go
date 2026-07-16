@@ -4,7 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+
+	"github.com/sunnyhmz7010/meowbridge/internal/auth"
 )
+
+func mustAdminHash(t *testing.T, st *Store, ctx context.Context) string {
+	t.Helper()
+	hash, err := st.AdminPasswordHash(ctx)
+	if err != nil {
+		t.Fatalf("AdminPasswordHash: %v", err)
+	}
+	return hash
+}
 
 func TestMigrateCreatesCoreTables(t *testing.T) {
 	ctx := context.Background()
@@ -110,7 +121,7 @@ func TestBootstrapCreatesAdminAndSettingsOnce(t *testing.T) {
 	}
 }
 
-func TestBootstrapRequiresAdminPasswordForInitialAdmin(t *testing.T) {
+func TestBootstrapWithoutAdminPasswordLeavesAdminUninitialized(t *testing.T) {
 	ctx := context.Background()
 	st, cleanup := openTestStore(t)
 	defer cleanup()
@@ -118,8 +129,8 @@ func TestBootstrapRequiresAdminPasswordForInitialAdmin(t *testing.T) {
 	err := st.Bootstrap(ctx, BootstrapOptions{
 		LogRetentionDays: 14,
 	})
-	if err == nil {
-		t.Fatal("Bootstrap() error = nil")
+	if err != nil {
+		t.Fatalf("Bootstrap without admin password: %v", err)
 	}
 
 	var adminCount int
@@ -128,6 +139,59 @@ func TestBootstrapRequiresAdminPasswordForInitialAdmin(t *testing.T) {
 	}
 	if adminCount != 0 {
 		t.Fatalf("adminCount = %d", adminCount)
+	}
+	exists, err := st.AdminExists(ctx)
+	if err != nil {
+		t.Fatalf("AdminExists: %v", err)
+	}
+	if exists {
+		t.Fatal("admin should not exist before first-run setup")
+	}
+}
+
+func TestCreateInitialAdminOnlyWorksOnce(t *testing.T) {
+	ctx := context.Background()
+	st, cleanup := openTestStore(t)
+	defer cleanup()
+
+	if err := st.Bootstrap(ctx, BootstrapOptions{LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	if err := st.CreateInitialAdmin(ctx, "first-password"); err != nil {
+		t.Fatalf("CreateInitialAdmin first: %v", err)
+	}
+	exists, err := st.AdminExists(ctx)
+	if err != nil {
+		t.Fatalf("AdminExists: %v", err)
+	}
+	if !exists {
+		t.Fatal("admin should exist after first-run setup")
+	}
+	if err := st.CreateInitialAdmin(ctx, "second-password"); err == nil {
+		t.Fatal("CreateInitialAdmin second error = nil")
+	}
+	if !auth.VerifyPassword(mustAdminHash(t, st, ctx), "first-password") {
+		t.Fatal("initial admin password was not preserved")
+	}
+}
+
+func TestCreateInitialAdminRejectsBlankPassword(t *testing.T) {
+	ctx := context.Background()
+	st, cleanup := openTestStore(t)
+	defer cleanup()
+
+	if err := st.Bootstrap(ctx, BootstrapOptions{LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	if err := st.CreateInitialAdmin(ctx, "   "); err == nil {
+		t.Fatal("CreateInitialAdmin blank password error = nil")
+	}
+	exists, err := st.AdminExists(ctx)
+	if err != nil {
+		t.Fatalf("AdminExists: %v", err)
+	}
+	if exists {
+		t.Fatal("blank password should not create admin")
 	}
 }
 

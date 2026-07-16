@@ -34,6 +34,10 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+type setupRequest struct {
+	Password string `json:"password"`
+}
+
 type endpointRequest struct {
 	Name          string           `json:"name"`
 	MeowNickname  string           `json:"meow_nickname"`
@@ -84,6 +88,84 @@ func (api *API) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond.OK(w, map[string]string{"token": raw})
+}
+
+func (api *API) handleSetupStatus(w http.ResponseWriter, r *http.Request) {
+	exists, err := api.deps.Store.AdminExists(r.Context())
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to load setup status")
+		return
+	}
+	respond.OK(w, map[string]bool{"needs_setup": !exists})
+}
+
+func (api *API) handleSetup(w http.ResponseWriter, r *http.Request) {
+	if !isJSONRequest(r) {
+		respond.Error(w, http.StatusUnsupportedMediaType, "content-type must be application/json")
+		return
+	}
+	if isCrossSiteRequest(r) {
+		respond.Error(w, http.StatusForbidden, "cross-site setup is not allowed")
+		return
+	}
+
+	exists, err := api.deps.Store.AdminExists(r.Context())
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to load setup status")
+		return
+	}
+	if exists {
+		respond.Error(w, http.StatusConflict, "admin already initialized")
+		return
+	}
+
+	var req setupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respond.Error(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if strings.TrimSpace(req.Password) == "" {
+		respond.Error(w, http.StatusBadRequest, "password is required")
+		return
+	}
+	if err := api.deps.Store.CreateInitialAdmin(r.Context(), req.Password); errors.Is(err, store.ErrAdminAlreadyInitialized) {
+		respond.Error(w, http.StatusConflict, "admin already initialized")
+		return
+	} else if errors.Is(err, store.ErrBlankAdminPassword) {
+		respond.Error(w, http.StatusBadRequest, "password is required")
+		return
+	} else if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to initialize admin")
+		return
+	}
+	raw, err := auth.IssueJWT(api.deps.Config.JWTSecret, 24*time.Hour)
+	if err != nil {
+		respond.Error(w, http.StatusInternalServerError, "failed to issue token")
+		return
+	}
+	respond.OK(w, map[string]string{"token": raw})
+}
+
+func isJSONRequest(r *http.Request) bool {
+	contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
+	return contentType == "application/json" || strings.HasPrefix(contentType, "application/json;")
+}
+
+func isCrossSiteRequest(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "cross-site") {
+		return true
+	}
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return false
+	}
+	return !sameOrigin(origin, r)
+}
+
+func sameOrigin(origin string, r *http.Request) bool {
+	httpOrigin := "http://" + r.Host
+	httpsOrigin := "https://" + r.Host
+	return strings.EqualFold(origin, httpOrigin) || strings.EqualFold(origin, httpsOrigin)
 }
 
 func (api *API) requireAdmin(next http.Handler) http.Handler {

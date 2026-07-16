@@ -5,6 +5,7 @@ import type {
   ParserConfig,
   PushLog,
   PushLogListItem,
+  SetupStatus,
   WebhookPreset,
   WebhookPreviewRequest,
   WebhookPreviewResult,
@@ -168,6 +169,16 @@ async function request<T>(
 }
 
 export const apiClient = {
+  async getSetupStatus(): Promise<SetupStatus> {
+    return request<SetupStatus>('/api/admin/setup')
+  },
+  async setupAdmin(password: string): Promise<string> {
+    const data = await request<{ token: string }>('/api/admin/setup', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    })
+    return data.token
+  },
   async login(password: string): Promise<string> {
     const data = await request<{ token: string }>('/api/admin/login', {
       method: 'POST',

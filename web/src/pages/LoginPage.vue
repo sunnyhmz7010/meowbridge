@@ -1,28 +1,56 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ApiError } from '@/api/client'
+import { ApiError, apiClient } from '@/api/client'
 import { authStore } from '@/stores/auth'
 
 const router = useRouter()
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+const checkingSetup = ref(true)
+const needsSetup = ref(false)
+const title = computed(() => needsSetup.value ? '初始化管理员' : '登录管理后台')
+const description = computed(() => needsSetup.value
+  ? '首次打开时设置管理员密码，设置后会自动进入后台。'
+  : '输入管理员密码登录后台。')
+const buttonText = computed(() => {
+  if (loading.value) {
+    return needsSetup.value ? '初始化中...' : '登录中...'
+  }
+  return needsSetup.value ? '设置密码并进入后台' : '登录'
+})
 
 async function submit(): Promise<void> {
   error.value = ''
   loading.value = true
   try {
-    await authStore.login(password.value)
+    if (needsSetup.value) {
+      await authStore.setup(password.value)
+    } else {
+      await authStore.login(password.value)
+    }
     await router.push('/endpoints')
   } catch (err) {
     error.value = err instanceof ApiError && err.status === 401
       ? '密码错误或凭证无效'
-      : err instanceof ApiError ? err.message : '登录失败'
+      : err instanceof ApiError ? err.message : (needsSetup.value ? '初始化失败' : '登录失败')
   } finally {
     loading.value = false
   }
 }
+
+onMounted(async () => {
+  checkingSetup.value = true
+  try {
+    const status = await apiClient.getSetupStatus()
+    needsSetup.value = status.needs_setup
+  } catch (err) {
+    error.value = err instanceof ApiError ? err.message : '加载初始化状态失败'
+  } finally {
+    checkingSetup.value = false
+  }
+})
 </script>
 
 <template>
@@ -43,15 +71,15 @@ async function submit(): Promise<void> {
 
       <form class="app-card rounded-none p-8 sm:p-10" @submit.prevent="submit">
         <p class="text-sm uppercase tracking-[0.3em]" style="color: var(--primary);">Admin</p>
-        <h2 class="app-heading mt-3 text-2xl font-semibold">登录管理后台</h2>
-        <p class="app-muted mt-2 text-sm">输入首次初始化时设置的管理员密码。</p>
+        <h2 class="app-heading mt-3 text-2xl font-semibold">{{ title }}</h2>
+        <p class="app-muted mt-2 text-sm">{{ checkingSetup ? '正在检查初始化状态...' : description }}</p>
         <label class="app-muted mt-8 block text-sm">
           管理员密码
           <input
             v-model="password"
             class="app-input mt-2"
             type="password"
-            autocomplete="current-password"
+            :autocomplete="needsSetup ? 'new-password' : 'current-password'"
             required
           />
         </label>
@@ -60,9 +88,9 @@ async function submit(): Promise<void> {
         </p>
         <button
           class="app-button-primary mt-6 w-full py-3 disabled:opacity-60"
-          :disabled="loading"
+          :disabled="loading || checkingSetup"
         >
-          {{ loading ? '登录中...' : '登录' }}
+          {{ checkingSetup ? '检查中...' : buttonText }}
         </button>
       </form>
     </section>

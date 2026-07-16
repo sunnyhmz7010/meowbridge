@@ -13,6 +13,8 @@ func NewRouter(deps Dependencies) http.Handler {
 	r.Post("/webhook/{token}", api.handleWebhook)
 	r.Get("/verify/{token}", api.handleVerifyToken)
 	r.Route("/api/admin", func(r chi.Router) {
+		r.Get("/setup", api.handleSetupStatus)
+		r.Post("/setup", api.handleSetup)
 		r.Post("/login", api.handleLogin)
 		r.Group(func(r chi.Router) {
 			r.Use(api.requireAdmin)

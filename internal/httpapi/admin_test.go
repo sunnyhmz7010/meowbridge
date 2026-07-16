@@ -71,6 +71,111 @@ func TestAdminLoginAndEndpointCRUD(t *testing.T) {
 	}
 }
 
+func TestAdminFirstRunSetupCreatesInitialAdmin(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+
+	statusReq := httptest.NewRequest(http.MethodGet, "/api/admin/setup", nil)
+	statusRR := httptest.NewRecorder()
+	router.ServeHTTP(statusRR, statusReq)
+	if statusRR.Code != http.StatusOK {
+		t.Fatalf("setup status = %d body = %s", statusRR.Code, statusRR.Body.String())
+	}
+	if !strings.Contains(statusRR.Body.String(), `"needs_setup":true`) {
+		t.Fatalf("setup status body = %s", statusRR.Body.String())
+	}
+
+	setupReq := httptest.NewRequest(http.MethodPost, "/api/admin/setup", bytes.NewBufferString(`{"password":"first-password"}`))
+	setupReq.Header.Set("Content-Type", "application/json")
+	setupRR := httptest.NewRecorder()
+	router.ServeHTTP(setupRR, setupReq)
+	if setupRR.Code != http.StatusOK {
+		t.Fatalf("setup status = %d body = %s", setupRR.Code, setupRR.Body.String())
+	}
+	if !strings.Contains(setupRR.Body.String(), `"token":"`) {
+		t.Fatalf("setup response missing token: %s", setupRR.Body.String())
+	}
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/admin/login", bytes.NewBufferString(`{"password":"first-password"}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginRR := httptest.NewRecorder()
+	router.ServeHTTP(loginRR, loginReq)
+	if loginRR.Code != http.StatusOK {
+		t.Fatalf("login after setup status = %d body = %s", loginRR.Code, loginRR.Body.String())
+	}
+
+	repeatReq := httptest.NewRequest(http.MethodPost, "/api/admin/setup", bytes.NewBufferString(`{"password":"other-password"}`))
+	repeatReq.Header.Set("Content-Type", "application/json")
+	repeatRR := httptest.NewRecorder()
+	router.ServeHTTP(repeatRR, repeatReq)
+	if repeatRR.Code != http.StatusConflict {
+		t.Fatalf("repeat setup status = %d body = %s", repeatRR.Code, repeatRR.Body.String())
+	}
+}
+
+func TestAdminFirstRunSetupRejectsEmptyPassword(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+
+	setupReq := httptest.NewRequest(http.MethodPost, "/api/admin/setup", bytes.NewBufferString(`{"password":"   "}`))
+	setupReq.Header.Set("Content-Type", "application/json")
+	setupRR := httptest.NewRecorder()
+	router.ServeHTTP(setupRR, setupReq)
+	if setupRR.Code != http.StatusBadRequest {
+		t.Fatalf("setup status = %d body = %s", setupRR.Code, setupRR.Body.String())
+	}
+	exists, err := st.AdminExists(ctx)
+	if err != nil {
+		t.Fatalf("AdminExists: %v", err)
+	}
+	if exists {
+		t.Fatal("admin should not be created with empty password")
+	}
+}
+
+func TestAdminFirstRunSetupRejectsCrossSiteAndNonJSONRequests(t *testing.T) {
+	ctx := context.Background()
+	st := newHTTPTestStore(t)
+	if err := st.Bootstrap(ctx, store.BootstrapOptions{LogRetentionDays: 14}); err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	router := NewRouter(Dependencies{Store: st, Config: config.Config{JWTSecret: "jwt-secret", MeowTimeout: time.Second}, MeowClient: meow.New("http://127.0.0.1:1", time.Millisecond)})
+
+	crossSiteReq := httptest.NewRequest(http.MethodPost, "/api/admin/setup", bytes.NewBufferString(`{"password":"first-password"}`))
+	crossSiteReq.Header.Set("Content-Type", "application/json")
+	crossSiteReq.Header.Set("Origin", "https://evil.example")
+	crossSiteReq.Host = "localhost:8080"
+	crossSiteRR := httptest.NewRecorder()
+	router.ServeHTTP(crossSiteRR, crossSiteReq)
+	if crossSiteRR.Code != http.StatusForbidden {
+		t.Fatalf("cross-site setup status = %d body = %s", crossSiteRR.Code, crossSiteRR.Body.String())
+	}
+
+	formReq := httptest.NewRequest(http.MethodPost, "/api/admin/setup", bytes.NewBufferString(`password=first-password`))
+	formReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	formRR := httptest.NewRecorder()
+	router.ServeHTTP(formRR, formReq)
+	if formRR.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("form setup status = %d body = %s", formRR.Code, formRR.Body.String())
+	}
+
+	exists, err := st.AdminExists(ctx)
+	if err != nil {
+		t.Fatalf("AdminExists: %v", err)
+	}
+	if exists {
+		t.Fatal("blocked setup request should not create admin")
+	}
+}
+
 func TestAdminWebhookPresetsAndPreview(t *testing.T) {
 	ctx := context.Background()
 	st := newHTTPTestStore(t)

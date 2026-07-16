@@ -19,6 +19,9 @@ export const authStore = {
   async login(password: string): Promise<void> {
     persist(await apiClient.login(password))
   },
+  async setup(password: string): Promise<void> {
+    persist(await apiClient.setupAdmin(password))
+  },
   logout(): void {
     persist('')
   },

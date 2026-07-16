@@ -25,6 +25,23 @@ describe('apiClient', () => {
     await expect(apiClient.login('secret')).resolves.toBe('jwt-token')
   })
 
+  it('loads setup status and unwraps setup token', async () => {
+    const fetchMock = vi.fn(async (path: RequestInfo | URL) => {
+      if (String(path).endsWith('/setup') && fetchMock.mock.calls.length === 1) {
+        return Response.json({ ok: true, data: { needs_setup: true } }, { status: 200 })
+      }
+      return Response.json({ ok: true, data: { token: 'setup-token' } }, { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(apiClient.getSetupStatus()).resolves.toEqual({ needs_setup: true })
+    await expect(apiClient.setupAdmin('first-password')).resolves.toBe('setup-token')
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/admin/setup', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ password: 'first-password' }),
+    }))
+  })
+
   it('loads webhook presets and previews parser results', async () => {
     const fetchMock = vi.fn(async (path: RequestInfo | URL) => {
       if (String(path).endsWith('/webhook/presets')) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sunnyhmz7010/meowbridge/internal/auth"
@@ -14,25 +15,17 @@ type BootstrapOptions struct {
 	LogRetentionDays int
 }
 
+var ErrAdminAlreadyInitialized = errors.New("admin already initialized")
+var ErrBlankAdminPassword = errors.New("admin password is required")
+
 func (s *Store) Bootstrap(ctx context.Context, opts BootstrapOptions) error {
-	var count int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&count); err != nil {
+	adminExists, err := s.AdminExists(ctx)
+	if err != nil {
 		return err
 	}
-	needsAdminPassword := count == 0
-	if needsAdminPassword && opts.AdminPassword == "" {
-		return errors.New("ADMIN_PASSWORD is required for initial bootstrap")
-	}
 
-	if needsAdminPassword {
-		hash, err := auth.HashPassword(opts.AdminPassword)
-		if err != nil {
-			return err
-		}
-		if _, err := s.db.ExecContext(ctx, `
-			INSERT INTO admin_users(password_hash, created_at, updated_at)
-			VALUES(?, ?, ?)
-		`, string(hash), time.Now().UTC(), time.Now().UTC()); err != nil {
+	if !adminExists && opts.AdminPassword != "" {
+		if err := s.CreateInitialAdmin(ctx, opts.AdminPassword); err != nil {
 			return err
 		}
 	}
@@ -41,6 +34,45 @@ func (s *Store) Bootstrap(ctx context.Context, opts BootstrapOptions) error {
 		retentionDays = 14
 	}
 	return s.insertSettingIfMissing(ctx, "log_retention_days", strconv.Itoa(retentionDays))
+}
+
+func (s *Store) AdminExists(ctx context.Context) (bool, error) {
+	var count int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (s *Store) CreateInitialAdmin(ctx context.Context, password string) error {
+	if strings.TrimSpace(password) == "" {
+		return ErrBlankAdminPassword
+	}
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var count int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM admin_users`).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return ErrAdminAlreadyInitialized
+	}
+	now := time.Now().UTC()
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO admin_users(password_hash, created_at, updated_at)
+		VALUES(?, ?, ?)
+	`, string(hash), now, now); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) AdminPasswordHash(ctx context.Context) (string, error) {

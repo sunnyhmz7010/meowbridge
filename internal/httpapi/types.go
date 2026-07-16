@@ -16,7 +16,9 @@ type webhookStore interface {
 
 type apiStore interface {
 	webhookStore
+	AdminExists(ctx context.Context) (bool, error)
 	AdminPasswordHash(ctx context.Context) (string, error)
+	CreateInitialAdmin(ctx context.Context, password string) error
 	UpdateAdminPasswordHash(ctx context.Context, hash string) error
 	CreateEndpoint(ctx context.Context, input store.EndpointInput) (store.Endpoint, error)
 	ListEndpoints(ctx context.Context) ([]store.Endpoint, error)

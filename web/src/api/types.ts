@@ -31,6 +31,10 @@ export interface WebhookPreviewResult {
   msg_type: MsgType
 }
 
+export interface SetupStatus {
+  needs_setup: boolean
+}
+
 export interface EndpointView {
   id: number
   name: string
