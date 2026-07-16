@@ -50,10 +50,10 @@ onMounted(load)
 
 <template>
   <AppLayout>
-    <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+    <div class="flex flex-col justify-between gap-4 border-b pb-6 lg:flex-row lg:items-end" style="border-color: var(--border);">
       <div>
         <p class="app-muted text-sm uppercase tracking-[0.22em]">Delivery Logs</p>
-        <h1 class="app-heading mt-2 text-3xl font-semibold tracking-tight">推送日志</h1>
+        <h1 class="app-heading mt-2 text-4xl font-black tracking-tight">推送日志</h1>
         <p class="app-muted mt-2 text-sm">查看 Webhook 解析结果、MeoW 响应和失败原因。</p>
       </div>
       <button class="app-button-danger" @click="cleanupOpen = true">
@@ -62,17 +62,17 @@ onMounted(load)
     </div>
 
     <div v-if="!loading && !error" class="mt-6 grid gap-4 md:grid-cols-3">
-      <section class="app-card rounded-3xl p-5">
-        <p class="app-muted text-sm">日志总数</p>
-        <p class="mt-2 text-3xl font-semibold">{{ logs.length }}</p>
+      <section class="app-card p-5">
+        <p class="app-muted text-xs font-bold uppercase tracking-[0.16em]">日志总数</p>
+        <p class="mt-2 text-4xl font-black">{{ logs.length }}</p>
       </section>
-      <section class="app-card rounded-3xl p-5">
-        <p class="app-muted text-sm">成功</p>
-        <p class="mt-2 text-3xl font-semibold">{{ logs.filter((log) => log.success).length }}</p>
+      <section class="app-card p-5">
+        <p class="app-muted text-xs font-bold uppercase tracking-[0.16em]">成功</p>
+        <p class="mt-2 text-4xl font-black" style="color: var(--success);">{{ logs.filter((log) => log.success).length }}</p>
       </section>
-      <section class="app-card rounded-3xl p-5">
-        <p class="app-muted text-sm">失败</p>
-        <p class="mt-2 text-3xl font-semibold">{{ logs.filter((log) => !log.success).length }}</p>
+      <section class="app-card p-5">
+        <p class="app-muted text-xs font-bold uppercase tracking-[0.16em]">失败</p>
+        <p class="mt-2 text-4xl font-black" style="color: var(--danger);">{{ logs.filter((log) => !log.success).length }}</p>
       </section>
     </div>
 
@@ -82,7 +82,7 @@ onMounted(load)
     <template v-if="!loading && !error">
       <EmptyState v-if="logs.length === 0" class="mt-6" title="暂无推送日志" description="收到 Webhook 请求后，这里会显示推送记录。" />
 
-      <div v-else class="app-card mt-6 overflow-hidden rounded-3xl">
+      <div v-else class="app-card mt-6 overflow-hidden">
         <table class="app-table text-sm">
           <thead>
             <tr>

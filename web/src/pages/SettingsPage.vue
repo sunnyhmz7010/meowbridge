@@ -98,17 +98,20 @@ onMounted(load)
 
 <template>
   <AppLayout>
-    <p class="app-muted text-sm uppercase tracking-[0.22em]">Preferences</p>
-    <h1 class="app-heading mt-2 text-3xl font-semibold tracking-tight">设置</h1>
-    <p class="app-muted mt-2 text-sm">更新显示偏好、日志保留和管理员密码。</p>
+    <div class="app-page-header">
+      <p class="app-muted text-sm uppercase tracking-[0.22em]">Preferences</p>
+      <h1 class="app-heading mt-2 text-4xl font-black tracking-tight">设置</h1>
+      <p class="app-muted mt-2 text-sm">更新显示偏好、日志保留和管理员密码。</p>
+    </div>
 
-    <p v-if="error" class="mt-6 rounded-xl border p-4 text-sm" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: var(--danger-soft); color: var(--danger);">{{ error }}</p>
+    <p v-if="error" class="app-alert-danger mt-6">{{ error }}</p>
     <p v-else-if="loading" class="app-muted mt-6 text-sm">加载中...</p>
 
     <div v-else class="mt-6 grid gap-6 xl:grid-cols-2">
-      <section class="app-card rounded-3xl p-6">
-        <h2 class="app-heading text-lg font-semibold">显示偏好</h2>
-        <p class="app-muted mt-1 text-sm">选择后台主题，或跟随系统设置。</p>
+      <section class="app-card p-6">
+        <p class="app-section-kicker">Appearance</p>
+        <h2 class="app-heading mt-2 text-xl font-black">显示偏好</h2>
+        <p class="app-muted mt-2 text-sm">选择后台主题，或跟随系统设置。</p>
         <label class="app-muted mt-5 grid gap-2 text-sm">
           主题模式
           <select class="app-input" :value="themeStore.preference.value" @change="setTheme">
@@ -119,8 +122,10 @@ onMounted(load)
         </label>
       </section>
 
-      <form class="app-card rounded-3xl p-6" @submit.prevent="saveSettings">
-        <h2 class="app-heading text-lg font-semibold">服务设置</h2>
+      <form class="app-card p-6" @submit.prevent="saveSettings">
+        <p class="app-section-kicker">Service</p>
+        <h2 class="app-heading mt-2 text-xl font-black">服务设置</h2>
+        <p class="app-muted mt-2 text-sm">控制后台日志的保留周期。</p>
         <div class="mt-5 grid gap-5">
           <label class="app-muted grid gap-2 text-sm">
             日志保留天数
@@ -134,9 +139,16 @@ onMounted(load)
         </div>
       </form>
 
-      <form class="app-card rounded-3xl p-6 xl:col-span-2" @submit.prevent="passwordConfirmOpen = true">
-        <h2 class="app-heading text-lg font-semibold">修改密码</h2>
-        <div class="mt-5 grid gap-5">
+      <form class="app-card p-6 xl:col-span-2" @submit.prevent="passwordConfirmOpen = true">
+        <div class="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+          <div>
+            <p class="app-section-kicker">Security</p>
+            <h2 class="app-heading mt-2 text-xl font-black">修改密码</h2>
+            <p class="app-muted mt-2 text-sm">修改成功后会清除当前登录状态，需要重新登录。</p>
+          </div>
+          <span class="app-badge app-badge-muted w-fit">ADMIN</span>
+        </div>
+        <div class="mt-5 grid gap-5 lg:grid-cols-2">
           <label class="app-muted grid gap-2 text-sm">
             当前密码
             <input v-model="passwordForm.old_password" type="password" autocomplete="current-password" class="app-input" required />

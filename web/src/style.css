@@ -3,58 +3,74 @@
 :root {
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  --bg: #f5f7fb;
-  --bg-soft: #eef3f8;
-  --panel: rgba(255, 255, 255, 0.88);
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --bg: #f8f9ff;
+  --bg-soft: #eff4ff;
+  --workspace: #f8f9ff;
+  --panel: #ffffff;
   --panel-solid: #ffffff;
-  --panel-muted: #f8fafc;
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --border: #dbe3ee;
-  --border-strong: #cbd5e1;
-  --primary: #0891b2;
-  --primary-hover: #0e7490;
-  --primary-soft: #cffafe;
-  --danger: #dc2626;
-  --danger-soft: #fee2e2;
-  --warning: #d97706;
+  --panel-muted: #eff4ff;
+  --panel-elevated: #ffffff;
+  --text: #0b1c30;
+  --text-muted: #5f6472;
+  --border: #d8dcef;
+  --border-strong: #c7c4d8;
+  --primary: #4f46e5;
+  --primary-hover: #3525cd;
+  --primary-contrast: #ffffff;
+  --primary-soft: #e2dfff;
+  --secondary: #0284c7;
+  --danger: #ba1a1a;
+  --danger-soft: #ffdad6;
+  --warning: #b45309;
   --warning-soft: #fef3c7;
-  --success: #059669;
+  --success: #047857;
   --success-soft: #d1fae5;
-  --shadow: 0 18px 60px rgba(15, 23, 42, 0.08);
-  --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.06);
+  --code-bg: #18181b;
+  --code-text: #e5e7eb;
+  --shadow: 0 20px 55px rgba(15, 23, 42, 0.08);
+  --shadow-soft: 0 10px 25px rgba(15, 23, 42, 0.06);
 }
 
 :root[data-theme='dark'] {
-  --bg: #0b1120;
-  --bg-soft: #111827;
-  --panel: rgba(15, 23, 42, 0.86);
-  --panel-solid: #111827;
-  --panel-muted: #0f172a;
-  --text: #e5eefb;
-  --text-muted: #94a3b8;
-  --border: #243247;
-  --border-strong: #334155;
-  --primary: #22d3ee;
-  --primary-hover: #67e8f9;
-  --primary-soft: rgba(34, 211, 238, 0.14);
-  --danger: #f87171;
-  --danger-soft: rgba(248, 113, 113, 0.14);
+  --bg: #09090b;
+  --bg-soft: #18181b;
+  --workspace: #09090b;
+  --panel: #18181b;
+  --panel-solid: #18181b;
+  --panel-muted: #111113;
+  --panel-elevated: #202025;
+  --text: #eaf1ff;
+  --text-muted: #a1a1aa;
+  --border: #27272a;
+  --border-strong: #3f3f46;
+  --primary: #c3c0ff;
+  --primary-hover: #e2dfff;
+  --primary-contrast: #09090b;
+  --primary-soft: rgba(79, 70, 229, 0.2);
+  --secondary: #38bdf8;
+  --danger: #fca5a5;
+  --danger-soft: rgba(185, 28, 28, 0.22);
   --warning: #fbbf24;
-  --warning-soft: rgba(251, 191, 36, 0.14);
-  --success: #34d399;
-  --success-soft: rgba(52, 211, 153, 0.14);
-  --shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
-  --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.22);
+  --warning-soft: rgba(217, 119, 6, 0.2);
+  --success: #6ee7b7;
+  --success-soft: rgba(4, 120, 87, 0.22);
+  --code-bg: #09090b;
+  --code-text: #f4f4f5;
+  --shadow: 0 22px 65px rgba(0, 0, 0, 0.42);
+  --shadow-soft: 0 12px 35px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 14%, transparent), transparent 32rem),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 button,
@@ -70,42 +86,77 @@ input,
 select,
 textarea {
   transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease,
-    opacity 160ms ease;
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
 }
 
 .app-shell {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 90% 0%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 28rem),
-    var(--bg);
+    linear-gradient(180deg, color-mix(in srgb, var(--primary-soft) 28%, transparent), transparent 18rem),
+    var(--workspace);
   color: var(--text);
 }
 
 .app-sidebar {
   border-color: var(--border);
-  background: color-mix(in srgb, var(--panel-solid) 86%, transparent);
+  background: color-mix(in srgb, var(--panel-solid) 94%, transparent);
   box-shadow: var(--shadow-soft);
+}
+
+:root[data-theme='dark'] .app-sidebar {
+  background: #0f0f13;
 }
 
 .app-topbar,
 .app-card {
   border: 1px solid var(--border);
-  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(18px);
+}
+
+.app-card {
+  border-radius: 1rem;
 }
 
 .app-card-muted {
+  border-radius: 0.875rem;
   border: 1px solid var(--border);
   background: var(--panel-muted);
 }
 
+.app-page-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.5rem;
+}
+
+.app-section-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .app-section-grid {
+    grid-template-columns: minmax(0, 18rem) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.app-section-kicker {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
 .app-heading {
   color: var(--text);
+  letter-spacing: -0.02em;
 }
 
 .app-muted {
@@ -118,32 +169,43 @@ textarea {
 }
 
 .app-nav-link {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  border-radius: 0.875rem;
-  padding: 0.75rem 0.875rem;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  padding: 0.8rem 0.95rem;
+  font-weight: 650;
 }
 
-.app-nav-link:hover,
-.app-nav-link.router-link-active {
-  background: var(--primary-soft);
+.app-nav-link:hover {
+  background: var(--panel-muted);
   color: var(--text);
+}
+
+.app-nav-link.router-link-active {
+  background: var(--primary);
+  color: var(--primary-contrast);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--primary) 20%, transparent);
 }
 
 .app-input {
   width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 0.875rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.5rem;
   background: var(--panel-solid);
   color: var(--text);
-  padding: 0.75rem 1rem;
+  padding: 0.72rem 0.9rem;
   outline: none;
+}
+
+.app-input::placeholder {
+  color: color-mix(in srgb, var(--text-muted) 78%, transparent);
 }
 
 .app-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .app-button-primary,
@@ -154,20 +216,21 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.875rem;
-  padding: 0.625rem 1rem;
-  font-weight: 600;
+  border-radius: 0.65rem;
+  padding: 0.6rem 0.95rem;
+  font-weight: 700;
 }
 
 .app-button-primary {
   border: 1px solid var(--primary);
   background: var(--primary);
-  color: #031014;
+  color: var(--primary-contrast);
 }
 
 .app-button-primary:hover {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
+  transform: translateY(-1px);
 }
 
 .app-button-secondary,
@@ -186,13 +249,13 @@ textarea {
 }
 
 .app-button-danger {
-  border: 1px solid color-mix(in srgb, var(--danger) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 42%, transparent);
   color: var(--danger);
   background: var(--danger-soft);
 }
 
 .app-button-warning {
-  border: 1px solid color-mix(in srgb, var(--warning) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning) 42%, transparent);
   color: var(--warning);
   background: var(--warning-soft);
 }
@@ -206,11 +269,14 @@ textarea {
 .app-table thead {
   color: var(--text-muted);
   background: var(--panel-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
 }
 
 .app-table th,
 .app-table td {
-  padding: 0.875rem 1rem;
+  padding: 0.8rem 1rem;
+  vertical-align: middle;
 }
 
 .app-table tbody tr {
@@ -225,9 +291,9 @@ textarea {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 0.25rem 0.625rem;
+  padding: 0.25rem 0.65rem;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 750;
 }
 
 .app-badge-success {
@@ -246,8 +312,31 @@ textarea {
 }
 
 .app-code-block {
-  border: 1px solid var(--border);
-  border-radius: 0.875rem;
-  background: var(--panel-muted);
-  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
+  border-radius: 0.75rem;
+  background: var(--code-bg);
+  color: var(--code-text);
+  font-family:
+    "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  line-height: 1.7;
+}
+
+.app-alert-danger,
+.app-alert-warning {
+  border-radius: 0.75rem;
+  border: 1px solid;
+  padding: 1rem;
+  font-size: 0.875rem;
+}
+
+.app-alert-danger {
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.app-alert-warning {
+  border-color: color-mix(in srgb, var(--warning) 40%, transparent);
+  background: var(--warning-soft);
+  color: var(--warning);
 }

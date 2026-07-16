@@ -55,25 +55,25 @@ onMounted(async () => {
 
 <template>
   <main class="app-shell grid min-h-screen place-items-center px-4 py-10">
-    <section class="grid w-full max-w-5xl overflow-hidden rounded-[2rem] lg:grid-cols-[1.1fr_0.9fr]" style="box-shadow: var(--shadow);">
-      <div class="hidden p-10 lg:block" style="background: var(--primary-soft);">
-        <p class="text-sm uppercase tracking-[0.3em]" style="color: var(--primary);">meowbridge</p>
-        <h1 class="mt-5 text-4xl font-semibold tracking-tight">轻量 Webhook 桥接控制台</h1>
-        <p class="app-muted mt-4 max-w-md leading-7">
+    <section class="grid w-full max-w-5xl overflow-hidden rounded-2xl border lg:grid-cols-[1.08fr_0.92fr]" style="border-color: var(--border); box-shadow: var(--shadow); background: var(--panel);">
+      <div class="hidden p-10 lg:block" style="background: linear-gradient(160deg, var(--primary) 0%, #312e81 55%, #0f172a 100%); color: white;">
+        <p class="text-sm font-bold uppercase tracking-[0.3em]" style="color: #c3c0ff;">meowbridge</p>
+        <h1 class="mt-5 text-4xl font-black tracking-tight">轻量 Webhook 桥接控制台</h1>
+        <p class="mt-4 max-w-md leading-7" style="color: #dbe4ff;">
           用独立 token 隔离外部服务入口，统一解析并转发到固定 MeoW 推送端。
         </p>
         <div class="mt-10 grid gap-3 text-sm">
-          <div class="app-card-muted rounded-2xl p-4">标准 Webhook URL 可直接填写</div>
-          <div class="app-card-muted rounded-2xl p-4">SQLite 单文件持久化，部署简单</div>
-          <div class="app-card-muted rounded-2xl p-4">推送日志可追踪解析和上游响应</div>
+          <div class="rounded-xl border border-white/15 bg-white/10 p-4">标准 Webhook URL 可直接填写</div>
+          <div class="rounded-xl border border-white/15 bg-white/10 p-4">SQLite 单文件持久化，部署简单</div>
+          <div class="rounded-xl border border-white/15 bg-white/10 p-4">推送日志可追踪解析和上游响应</div>
         </div>
       </div>
 
-      <form class="app-card rounded-none p-8 sm:p-10" @submit.prevent="submit">
-        <p class="text-sm uppercase tracking-[0.3em]" style="color: var(--primary);">Admin</p>
-        <h2 class="app-heading mt-3 text-2xl font-semibold">{{ title }}</h2>
+      <form class="p-8 sm:p-10" @submit.prevent="submit">
+        <p class="text-sm font-bold uppercase tracking-[0.3em]" style="color: var(--primary);">Admin</p>
+        <h2 class="app-heading mt-3 text-3xl font-black">{{ title }}</h2>
         <p class="app-muted mt-2 text-sm">{{ checkingSetup ? '正在检查初始化状态...' : description }}</p>
-        <label class="app-muted mt-8 block text-sm">
+        <label class="app-muted mt-8 block text-sm font-semibold">
           管理员密码
           <input
             v-model="password"

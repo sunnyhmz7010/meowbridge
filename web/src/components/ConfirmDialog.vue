@@ -15,9 +15,10 @@ defineEmits<{
 </script>
 
 <template>
-  <div v-if="open" class="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-    <section class="app-card w-full max-w-md rounded-2xl p-6 shadow-2xl">
-      <h2 class="app-heading text-lg font-semibold">{{ title }}</h2>
+  <div v-if="open" class="fixed inset-0 z-40 flex items-center justify-center bg-black/65 px-4 backdrop-blur-sm">
+    <section class="app-card w-full max-w-md p-6 shadow-2xl">
+      <p class="app-section-kicker">Confirm</p>
+      <h2 class="app-heading mt-2 text-xl font-black">{{ title }}</h2>
       <p class="app-muted mt-3 text-sm leading-6">{{ message }}</p>
       <div class="mt-6 flex justify-end gap-3">
         <button class="app-button-secondary text-sm" :disabled="busy" @click="$emit('cancel')">

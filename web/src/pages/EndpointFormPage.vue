@@ -188,159 +188,201 @@ onMounted(() => {
 
 <template>
   <AppLayout>
-    <button class="app-button-ghost mb-6 text-sm" @click="router.push('/endpoints')">← 返回 Endpoint</button>
-    <p class="app-muted text-sm uppercase tracking-[0.22em]">Endpoint Form</p>
-    <h1 class="app-heading mt-2 text-3xl font-semibold tracking-tight">{{ isEdit ? '编辑 Endpoint' : '新建 Endpoint' }}</h1>
-    <p class="app-muted mt-2 text-sm">Endpoint 会生成标准 Webhook URL，外部服务可直接填写。</p>
+    <div class="app-page-header flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+      <div>
+        <button class="app-button-ghost mb-5 text-sm" @click="router.push('/endpoints')">← 返回 Endpoint</button>
+        <p class="app-muted text-sm uppercase tracking-[0.22em]">Endpoint Form</p>
+        <h1 class="app-heading mt-2 text-4xl font-black tracking-tight">{{ isEdit ? '编辑 Endpoint' : '新建 Endpoint' }}</h1>
+        <p class="app-muted mt-2 text-sm">配置外部服务的 Webhook 入口、默认消息和 payload 解析方式。</p>
+      </div>
+      <span class="app-badge app-badge-muted w-fit">{{ isEdit ? 'EDIT MODE' : 'CREATE MODE' }}</span>
+    </div>
 
-    <p v-if="error" class="mt-6 rounded-xl border p-4 text-sm" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: var(--danger-soft); color: var(--danger);">{{ error }}</p>
+    <p v-if="error" class="app-alert-danger mt-6">{{ error }}</p>
     <p v-if="loading" class="app-muted mt-6 text-sm">加载中...</p>
     <div v-else-if="error" class="mt-6">
       <button class="app-button-secondary" @click="router.push('/endpoints')">返回 Endpoint 列表</button>
     </div>
 
-    <form v-else class="app-card mt-6 grid gap-6 rounded-3xl p-6" @submit.prevent="submit">
-      <section class="grid gap-5 lg:grid-cols-2">
-        <label class="app-muted grid gap-2 text-sm">
-          名称
-          <input v-model="form.name" class="app-input" required />
-        </label>
-
-        <label class="app-muted grid gap-2 text-sm">
-          MeoW nickname
-          <input
-            v-model="form.meow_nickname"
-            class="app-input disabled:opacity-60"
-            :disabled="isEdit"
-            required
-          />
-          <span v-if="isEdit" class="app-muted text-xs">创建后不可修改。</span>
-        </label>
-      </section>
-
-      <section class="app-card-muted grid gap-5 rounded-2xl p-5">
-        <h2 class="app-heading font-semibold">默认消息</h2>
-        <label class="app-muted grid gap-2 text-sm">
-          默认标题
-          <input v-model="form.default_title" class="app-input" />
-        </label>
-
-        <div class="grid gap-5 md:grid-cols-2">
-          <label class="app-muted grid gap-2 text-sm">
-            消息类型
-            <select v-model="form.msg_type" class="app-input">
-              <option value="text">text</option>
-              <option value="html">html</option>
-              <option value="markdown">markdown</option>
-            </select>
-          </label>
-
-          <label class="app-muted grid gap-2 text-sm">
-            HTML 高度
-            <input v-model.number="form.html_height" min="1" type="number" class="app-input" />
-          </label>
-        </div>
-      </section>
-
-      <section class="app-card-muted grid gap-5 rounded-2xl p-5">
-        <h2 class="app-heading font-semibold">跳转与图标</h2>
-        <label class="app-muted grid gap-2 text-sm">
-          默认跳转 URL
-          <input v-model="form.default_url" class="app-input" />
-        </label>
-
-        <label class="app-muted grid gap-2 text-sm">
-          默认图标 URL
-          <input v-model="form.default_img_url" class="app-input" />
-        </label>
-      </section>
-
-      <section class="app-card-muted grid gap-5 rounded-2xl p-5">
+    <form v-else class="mt-6 grid gap-6" @submit.prevent="submit">
+      <section class="app-section-grid">
         <div>
-          <h2 class="app-heading font-semibold">Webhook 解析</h2>
-          <p class="app-muted mt-1 text-sm">自动解析适合标准 payload；预设和自定义映射适合发送端字段不可控的场景。</p>
+          <p class="app-section-kicker">Identity</p>
+          <h2 class="app-heading mt-2 text-xl font-black">入口标识</h2>
+          <p class="app-muted mt-2 text-sm leading-6">名称用于后台识别，MeoW nickname 用于指定接收方，创建后保持稳定。</p>
         </div>
-
-        <label class="app-muted grid gap-2 text-sm">
-          解析模式
-          <select v-model="form.parser_config.mode" class="app-input">
-            <option value="auto">自动解析</option>
-            <option value="preset">预设解析器</option>
-            <option value="custom">自定义字段映射</option>
-          </select>
-        </label>
-
-        <label v-if="form.parser_config.mode === 'preset'" class="app-muted grid gap-2 text-sm">
-          预设解析器
-          <select v-model="form.parser_config.preset" class="app-input">
-            <option value="">选择预设</option>
-            <option v-for="preset in presets" :key="preset.id" :value="preset.id">
-              {{ preset.name }}
-            </option>
-          </select>
-          <span class="app-muted text-xs">推荐当前场景使用 GitHub 简化 Push。</span>
-        </label>
-
-        <div v-if="form.parser_config.mode === 'custom'" class="grid gap-4">
-          <label class="app-muted grid gap-2 text-sm">
-            标题字段
-            <textarea v-model="parserFields.title" class="app-input min-h-20" placeholder="每行一个 JSONPath 或字面量，例如：GitHub:&#10;$.event_type" />
-          </label>
-          <label class="app-muted grid gap-2 text-sm">
-            消息字段
-            <textarea v-model="parserFields.msg" class="app-input min-h-28" placeholder="仓库: &#10;$.hook.url&#10;\n分支: &#10;$.ref" />
-          </label>
-          <div class="grid gap-4 md:grid-cols-3">
+        <div class="app-card grid gap-5 p-6">
+          <div class="grid gap-5 lg:grid-cols-2">
             <label class="app-muted grid gap-2 text-sm">
-              URL 字段
-              <input v-model="parserFields.url" class="app-input" placeholder="$.hook.url" />
+              名称
+              <input v-model="form.name" class="app-input" required />
             </label>
+
             <label class="app-muted grid gap-2 text-sm">
-              图标字段
-              <input v-model="parserFields.img_url" class="app-input" placeholder="$.icon" />
+              MeoW nickname
+              <input
+                v-model="form.meow_nickname"
+                class="app-input disabled:opacity-60"
+                :disabled="isEdit"
+                required
+              />
+              <span v-if="isEdit" class="app-muted text-xs">创建后不可修改。</span>
             </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-section-grid">
+        <div>
+          <p class="app-section-kicker">Message Defaults</p>
+          <h2 class="app-heading mt-2 text-xl font-black">默认消息</h2>
+          <p class="app-muted mt-2 text-sm leading-6">当 Webhook payload 缺少可解析内容时，使用这里的兜底标题、类型和展示参数。</p>
+        </div>
+        <div class="app-card grid gap-5 p-6">
+          <label class="app-muted grid gap-2 text-sm">
+            默认标题
+            <input v-model="form.default_title" class="app-input" />
+          </label>
+
+          <div class="grid gap-5 md:grid-cols-2">
             <label class="app-muted grid gap-2 text-sm">
               消息类型
-              <select v-model="parserFields.msg_type" class="app-input">
+              <select v-model="form.msg_type" class="app-input">
                 <option value="text">text</option>
                 <option value="html">html</option>
                 <option value="markdown">markdown</option>
               </select>
             </label>
+
+            <label class="app-muted grid gap-2 text-sm">
+              HTML 高度
+              <input v-model.number="form.html_height" min="1" type="number" class="app-input" />
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="app-section-grid">
+        <div>
+          <p class="app-section-kicker">Links</p>
+          <h2 class="app-heading mt-2 text-xl font-black">跳转与图标</h2>
+          <p class="app-muted mt-2 text-sm leading-6">为消息补充默认跳转地址和图标地址，解析器输出为空时使用。</p>
+        </div>
+        <div class="app-card grid gap-5 p-6">
+          <label class="app-muted grid gap-2 text-sm">
+            默认跳转 URL
+            <input v-model="form.default_url" class="app-input" />
+          </label>
+
+          <label class="app-muted grid gap-2 text-sm">
+            默认图标 URL
+            <input v-model="form.default_img_url" class="app-input" />
+          </label>
+        </div>
+      </section>
+
+      <section class="app-section-grid">
+        <div>
+          <p class="app-section-kicker">Parser</p>
+          <h2 class="app-heading mt-2 text-xl font-black">Webhook 解析</h2>
+          <p class="app-muted mt-2 text-sm leading-6">优先用预设解析器处理 GitHub 等常见 payload；字段不固定时再使用自定义映射。</p>
+          <div class="app-card-muted mt-4 p-4 text-sm">
+            <p class="font-semibold">当前推荐</p>
+            <p class="app-muted mt-1 text-xs leading-5">GitHub 推送事件选择“预设解析器 / GitHub 简化 Push”，可把当前只显示 JSON 的 payload 转成可读通知。</p>
           </div>
         </div>
 
-        <div class="grid gap-4 lg:grid-cols-2">
-          <label class="app-muted grid gap-2 text-sm">
-            测试 payload
-            <textarea v-model="previewPayload" class="app-input min-h-56 font-mono text-xs" />
-          </label>
-          <div class="grid gap-3">
-            <div class="flex items-center justify-between">
-              <span class="app-muted text-sm">解析预览</span>
-              <button type="button" class="app-button-secondary px-3 py-1.5 text-sm" :disabled="previewing" @click="previewParser">
-                {{ previewing ? '解析中...' : '预览' }}
-              </button>
+        <div class="app-card grid gap-6 p-6">
+          <div class="grid gap-5 lg:grid-cols-2">
+            <label class="app-muted grid gap-2 text-sm">
+              解析模式
+              <select v-model="form.parser_config.mode" class="app-input">
+                <option value="auto">自动解析</option>
+                <option value="preset">预设解析器</option>
+                <option value="custom">自定义字段映射</option>
+              </select>
+            </label>
+
+            <label v-if="form.parser_config.mode === 'preset'" class="app-muted grid gap-2 text-sm">
+              预设解析器
+              <select v-model="form.parser_config.preset" class="app-input">
+                <option value="">选择预设</option>
+                <option v-for="preset in presets" :key="preset.id" :value="preset.id">
+                  {{ preset.name }}
+                </option>
+              </select>
+              <span class="app-muted text-xs">推荐当前场景使用 GitHub 简化 Push。</span>
+            </label>
+          </div>
+
+          <div v-if="form.parser_config.mode === 'custom'" class="app-card-muted grid gap-4 p-5">
+            <div>
+              <h3 class="app-heading font-semibold">自定义字段映射</h3>
+              <p class="app-muted mt-1 text-xs">每行一个 JSONPath 或字面量，按顺序拼接为最终字段。</p>
             </div>
-            <p v-if="previewError" class="rounded-xl border p-3 text-sm" style="border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: var(--danger-soft); color: var(--danger);">{{ previewError }}</p>
-            <pre v-if="previewResult" class="app-code-block min-h-56 overflow-auto p-4 text-xs">{{ JSON.stringify(previewResult, null, 2) }}</pre>
-            <div v-else class="app-card rounded-2xl p-4 text-sm">
-              <p class="app-muted">粘贴实际 Webhook JSON，点击预览确认标题、消息和跳转 URL。</p>
+            <label class="app-muted grid gap-2 text-sm">
+              标题字段
+              <textarea v-model="parserFields.title" class="app-input min-h-20" placeholder="每行一个 JSONPath 或字面量，例如：GitHub:&#10;$.event_type" />
+            </label>
+            <label class="app-muted grid gap-2 text-sm">
+              消息字段
+              <textarea v-model="parserFields.msg" class="app-input min-h-28" placeholder="仓库: &#10;$.hook.url&#10;&#10;分支: &#10;$.ref" />
+            </label>
+            <div class="grid gap-4 md:grid-cols-3">
+              <label class="app-muted grid gap-2 text-sm">
+                URL 字段
+                <input v-model="parserFields.url" class="app-input" placeholder="$.hook.url" />
+              </label>
+              <label class="app-muted grid gap-2 text-sm">
+                图标字段
+                <input v-model="parserFields.img_url" class="app-input" placeholder="$.icon" />
+              </label>
+              <label class="app-muted grid gap-2 text-sm">
+                消息类型
+                <select v-model="parserFields.msg_type" class="app-input">
+                  <option value="text">text</option>
+                  <option value="html">html</option>
+                  <option value="markdown">markdown</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="grid gap-4 lg:grid-cols-2">
+            <label class="app-muted grid gap-2 text-sm">
+              测试 payload
+              <textarea v-model="previewPayload" class="app-input min-h-64 font-mono text-xs" />
+            </label>
+            <div class="grid gap-3">
+              <div class="flex items-center justify-between">
+                <span class="app-muted text-sm font-semibold">解析预览</span>
+                <button type="button" class="app-button-secondary px-3 py-1.5 text-sm" :disabled="previewing" @click="previewParser">
+                  {{ previewing ? '解析中...' : '预览' }}
+                </button>
+              </div>
+              <p v-if="previewError" class="app-alert-danger p-3">{{ previewError }}</p>
+              <pre v-if="previewResult" class="app-code-block min-h-64 overflow-auto p-4 text-xs">{{ JSON.stringify(previewResult, null, 2) }}</pre>
+              <div v-else class="app-card-muted min-h-64 p-4 text-sm">
+                <p class="font-semibold">等待预览</p>
+                <p class="app-muted mt-2 leading-6">粘贴实际 Webhook JSON，点击预览确认标题、消息、跳转 URL 和消息类型。</p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <label class="app-muted flex items-center gap-3 text-sm">
-        <input v-model="form.active" type="checkbox" class="h-4 w-4" />
-        启用 endpoint
-      </label>
+      <div class="app-card flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+        <label class="app-muted flex items-center gap-3 text-sm">
+          <input v-model="form.active" type="checkbox" class="h-4 w-4" />
+          启用 endpoint
+        </label>
 
-      <div class="flex justify-end gap-3">
-        <button type="button" class="app-button-secondary" @click="router.push('/endpoints')">取消</button>
-        <button class="app-button-primary disabled:opacity-60" :disabled="saving">
-          {{ saving ? '保存中...' : '保存' }}
-        </button>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="app-button-secondary" @click="router.push('/endpoints')">取消</button>
+          <button class="app-button-primary disabled:opacity-60" :disabled="saving">
+            {{ saving ? '保存中...' : '保存' }}
+          </button>
+        </div>
       </div>
     </form>
   </AppLayout>

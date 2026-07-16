@@ -143,29 +143,29 @@ onMounted(load)
 
 <template>
   <AppLayout>
-    <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+    <div class="flex flex-col justify-between gap-4 border-b pb-6 lg:flex-row lg:items-end" style="border-color: var(--border);">
       <div>
         <p class="app-muted text-sm uppercase tracking-[0.22em]">Webhook Endpoints</p>
-        <h1 class="app-heading mt-2 text-3xl font-semibold tracking-tight">Endpoint</h1>
+        <h1 class="app-heading mt-2 text-4xl font-black tracking-tight">Endpoint</h1>
         <p class="app-muted mt-2 text-sm">管理外部服务可直接填写的标准 Webhook 入口。</p>
       </div>
       <button class="app-button-primary" @click="router.push('/endpoints/new')">
-        新建 Endpoint
+        + 新建 Endpoint
       </button>
     </div>
 
     <div v-if="!loading && !error" class="mt-6 grid gap-4 md:grid-cols-3">
-      <section class="app-card rounded-3xl p-5">
-        <p class="app-muted text-sm">Endpoint 总数</p>
-        <p class="mt-2 text-3xl font-semibold">{{ endpoints.length }}</p>
+      <section class="app-card p-5">
+        <p class="app-muted text-xs font-bold uppercase tracking-[0.16em]">Endpoint 总数</p>
+        <p class="mt-2 text-4xl font-black">{{ endpoints.length }}</p>
       </section>
-      <section class="app-card rounded-3xl p-5">
-        <p class="app-muted text-sm">启用中</p>
-        <p class="mt-2 text-3xl font-semibold">{{ endpoints.filter((endpoint) => endpoint.active).length }}</p>
+      <section class="app-card p-5">
+        <p class="app-muted text-xs font-bold uppercase tracking-[0.16em]">启用中</p>
+        <p class="mt-2 text-4xl font-black" style="color: var(--success);">{{ endpoints.filter((endpoint) => endpoint.active).length }}</p>
       </section>
-      <section class="app-card rounded-3xl p-5">
-        <p class="app-muted text-sm">已停用</p>
-        <p class="mt-2 text-3xl font-semibold">{{ endpoints.filter((endpoint) => !endpoint.active).length }}</p>
+      <section class="app-card p-5">
+        <p class="app-muted text-xs font-bold uppercase tracking-[0.16em]">已停用</p>
+        <p class="mt-2 text-4xl font-black">{{ endpoints.filter((endpoint) => !endpoint.active).length }}</p>
       </section>
     </div>
 
@@ -188,7 +188,7 @@ onMounted(load)
         </button>
       </EmptyState>
 
-      <div v-else class="app-card mt-6 overflow-hidden rounded-3xl">
+      <div v-else class="app-card mt-6 overflow-hidden">
         <table class="app-table text-sm">
           <thead>
             <tr>
@@ -203,7 +203,7 @@ onMounted(load)
           <tbody>
             <tr v-for="endpoint in endpoints" :key="endpoint.id">
               <td class="px-4 py-3">
-                <p class="font-medium">{{ endpoint.name }}</p>
+                <p class="font-semibold">{{ endpoint.name }}</p>
                 <p class="app-muted mt-1 max-w-xs truncate text-xs">{{ endpoint.default_title || '无默认标题' }}</p>
               </td>
               <td class="app-muted px-4 py-3">{{ endpoint.meow_nickname }}</td>
