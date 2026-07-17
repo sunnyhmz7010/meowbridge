@@ -117,8 +117,8 @@ func (c *Client) PushWithRetry(ctx context.Context, req PushRequest) (PushRespon
 		lastErr = err
 
 		// 成功或客户端错误（4xx）不重试
-		if err == nil && resp.StatusCode < 500 {
-			return resp, i, nil
+		if err == nil || (resp.StatusCode >= 400 && resp.StatusCode < 500) {
+			return resp, i, err
 		}
 
 		// 最后一次不等待
