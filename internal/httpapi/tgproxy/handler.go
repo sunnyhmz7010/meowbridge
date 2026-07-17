@@ -100,13 +100,23 @@ func (h *Handler) handleTGMethod(w http.ResponseWriter, r *http.Request) {
 	resp, retryCount, pushErr := h.deps.MeowClient.PushWithRetry(r.Context(), pushReq)
 
 	// 9. 记录日志
-	slog.Info("tg proxy result",
-		"endpoint_id", ep.ID,
-		"method", method,
-		"retry_count", retryCount,
-		"meow_status", resp.StatusCode,
-		"success", pushErr == nil && resp.StatusCode == 200,
-	)
+	if pushErr != nil || resp.StatusCode >= 400 {
+		slog.Error("tg proxy push failed",
+			"endpoint_id", ep.ID,
+			"method", method,
+			"retry_count", retryCount,
+			"meow_status", resp.StatusCode,
+			"error", pushErr,
+		)
+	} else {
+		slog.Info("tg proxy result",
+			"endpoint_id", ep.ID,
+			"method", method,
+			"retry_count", retryCount,
+			"meow_status", resp.StatusCode,
+			"success", true,
+		)
+	}
 
 	// 10. 伪造成功响应
 	RespondTGSuccess(w, content)
