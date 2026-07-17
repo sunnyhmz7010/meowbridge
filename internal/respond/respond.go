@@ -20,11 +20,7 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
-type errorCodeResponse struct {
-	OK    bool   `json:"ok"`
-	Error string `json:"error"`
-	Msg   string `json:"msg,omitempty"`
-}
+
 
 func JSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -42,8 +38,4 @@ func WebhookOK(w http.ResponseWriter, logID int64) {
 
 func Error(w http.ResponseWriter, status int, message string) {
 	JSON(w, status, errorResponse{OK: false, Error: message})
-}
-
-func ErrorCode(w http.ResponseWriter, status int, code string, message string) {
-	JSON(w, status, errorCodeResponse{OK: false, Error: code, Msg: message})
 }
