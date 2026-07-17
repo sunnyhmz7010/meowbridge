@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"strconv"
@@ -34,6 +35,14 @@ func (api *API) handleVerifyToken(w http.ResponseWriter, r *http.Request) {
 
 func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")
+
+	// 记录 webhook 请求日志
+	slog.Info("webhook received",
+		"token", token[:min(8, len(token))]+"...",
+		"method", r.Method,
+		"path", r.URL.Path,
+	)
+
 	ep, err := api.deps.Store.GetEndpointByToken(r.Context(), token)
 	if errors.Is(err, store.ErrNotFound) {
 		respond.Error(w, http.StatusNotFound, "token not found")
@@ -98,6 +107,14 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	})
 	if pushErr != nil {
 		api.writeWebhookLog(r, ep, parsed, final, meowResp.StatusCode, meowResp.Body, false, pushErr.Error(), string(body))
+
+		// 记录推送失败日志
+		slog.Error("webhook push failed",
+			"endpoint_id", ep.ID,
+			"meow_status", meowResp.StatusCode,
+			"error", pushErr.Error(),
+		)
+
 		respond.Error(w, http.StatusBadGateway, "meow upstream request failed")
 		return
 	}
@@ -106,6 +123,15 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusInternalServerError, "failed to create push log")
 		return
 	}
+
+	// 记录推送成功日志
+	slog.Info("webhook processed",
+		"endpoint_id", ep.ID,
+		"log_id", logID,
+		"meow_status", meowResp.StatusCode,
+		"success", true,
+	)
+
 	respond.WebhookOK(w, logID)
 }
 
@@ -173,4 +199,11 @@ func (api *API) writeWebhookLog(r *http.Request, ep store.Endpoint, parsed webho
 		Success:          success,
 		ErrorMessage:     errorMessage,
 	})
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

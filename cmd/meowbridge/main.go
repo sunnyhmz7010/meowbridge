@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/sunnyhmz7010/meowbridge/internal/config"
@@ -16,6 +18,12 @@ import (
 const meowAPIBaseURL = "https://api.chuckfang.com"
 
 func main() {
+	// 初始化结构化日志
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
 	ctx := context.Background()
 	cfg, err := config.Load()
 	if err != nil {
