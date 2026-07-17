@@ -96,7 +96,7 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	meowResp, pushErr := api.deps.MeowClient.Push(r.Context(), meow.PushRequest{
+	meowResp, retryCount, pushErr := api.deps.MeowClient.PushWithRetry(r.Context(), meow.PushRequest{
 		Nickname:   ep.MeowNickname,
 		Title:      final.Title,
 		Msg:        final.Msg,
@@ -112,6 +112,7 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		slog.Error("webhook push failed",
 			"endpoint_id", ep.ID,
 			"meow_status", meowResp.StatusCode,
+			"retry_count", retryCount,
 			"error", pushErr.Error(),
 		)
 
@@ -129,6 +130,7 @@ func (api *API) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		"endpoint_id", ep.ID,
 		"log_id", logID,
 		"meow_status", meowResp.StatusCode,
+		"retry_count", retryCount,
 		"success", true,
 	)
 

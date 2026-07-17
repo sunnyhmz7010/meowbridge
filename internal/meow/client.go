@@ -103,3 +103,33 @@ func (c *Client) Push(ctx context.Context, req PushRequest) (PushResponse, error
 	}
 	return resp, nil
 }
+
+func (c *Client) PushWithRetry(ctx context.Context, req PushRequest) (PushResponse, int, error) {
+	maxRetries := 3
+	delays := []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second}
+
+	var lastResp PushResponse
+	var lastErr error
+
+	for i := 0; i <= maxRetries; i++ {
+		resp, err := c.Push(ctx, req)
+		lastResp = resp
+		lastErr = err
+
+		// 成功或客户端错误（4xx）不重试
+		if err == nil && resp.StatusCode < 500 {
+			return resp, i, nil
+		}
+
+		// 最后一次不等待
+		if i < maxRetries {
+			select {
+			case <-ctx.Done():
+				return lastResp, i, ctx.Err()
+			case <-time.After(delays[i]):
+			}
+		}
+	}
+
+	return lastResp, maxRetries, lastErr
+}
