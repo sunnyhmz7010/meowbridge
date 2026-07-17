@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/sunnyhmz7010/meowbridge/internal/httpapi/tgproxy"
 	"github.com/sunnyhmz7010/meowbridge/internal/webui"
 )
 
@@ -12,6 +13,13 @@ func NewRouter(deps Dependencies) http.Handler {
 	r := chi.NewRouter()
 	r.Post("/webhook/{token}", api.handleWebhook)
 	r.Get("/verify/{token}", api.handleVerifyToken)
+
+	// TG 劫持路由
+	tgHandler := tgproxy.NewHandler(&tgproxy.Dependencies{
+		Store:      deps.Store,
+		MeowClient: deps.MeowClient,
+	})
+	tgHandler.RegisterRoutes(r)
 	r.Route("/api/admin", func(r chi.Router) {
 		r.Get("/setup", api.handleSetupStatus)
 		r.Post("/setup", api.handleSetup)
