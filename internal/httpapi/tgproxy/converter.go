@@ -29,21 +29,21 @@ func convertMarkdownV2(content string) string {
 	content = strings.ReplaceAll(content, `\)`, `\x08`)
 	content = strings.ReplaceAll(content, `\|`, `\x09`)
 
-	// 转换格式
+	// 转换格式（注意顺序：先处理 __underline__，再处理 _italic_）
+	// __underline__ → <u>underline</u>
+	underlineRe := regexp.MustCompile(`__([^_]+)__`)
+	content = underlineRe.ReplaceAllString(content, `<u>$1</u>`)
+
 	// *bold* → **bold**
 	boldRe := regexp.MustCompile(`\*([^\*]+)\*`)
 	content = boldRe.ReplaceAllString(content, `**$1**`)
 
 	// _italic_ → *italic*
-	italicRe := regexp.MustCompile(`(?<!\w)_([^_]+)_(?!\w)`)
+	italicRe := regexp.MustCompile(`_([^_]+)_`)
 	content = italicRe.ReplaceAllString(content, `*$1*`)
 
-	// __underline__ → <u>underline</u>
-	underlineRe := regexp.MustCompile(`__([^_]+)__`)
-	content = underlineRe.ReplaceAllString(content, `<u>$1</u>`)
-
 	// ~strikethrough~ → ~~strikethrough~~
-	strikeRe := regexp.MustCompile(`(?<!\~)~([^~]+)~(?!\~)`)
+	strikeRe := regexp.MustCompile(`~([^~]+)~`)
 	content = strikeRe.ReplaceAllString(content, `~~$1~~`)
 
 	// ||spoiler|| → <details><summary>spoiler</summary></details>
@@ -67,7 +67,10 @@ func convertMarkdownV2(content string) string {
 
 func convertHTML(content string) string {
 	// 直接透传支持的标签，忽略不支持的
-	// 移除 <tg-emoji> 和 <tg-spoiler>
-	re := regexp.MustCompile(`</?tg-(emoji|spoiler)[^>]*>`)
-	return re.ReplaceAllString(content, "")
+	// 移除 <tg-emoji> 和 <tg-spoiler> 及其内容
+	emojiRe := regexp.MustCompile(`<tg-emoji[^>]*>.*?</tg-emoji>`)
+	content = emojiRe.ReplaceAllString(content, "")
+	spoilerRe := regexp.MustCompile(`<tg-spoiler[^>]*>.*?</tg-spoiler>`)
+	content = spoilerRe.ReplaceAllString(content, "")
+	return content
 }
