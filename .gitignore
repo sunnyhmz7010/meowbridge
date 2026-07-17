@@ -2,3 +2,5 @@
 .superpowers/
 web/node_modules/
 web/dist/
+meowbridge.db
+meowbridge.exe
