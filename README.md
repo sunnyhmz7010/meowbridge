@@ -4,8 +4,8 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/github/v/tag/sunnyhmz7010/meowbridge?label=Release&color=3b82f6" alt="Release" />
-  <img src="https://img.shields.io/github/license/sunnyhmz7010/meowbridge?color=10b981" alt="License" />
+  <a href="https://github.com/sunnyhmz7010/meowbridge/releases"><img src="https://img.shields.io/github/v/release/sunnyhmz7010/meowbridge?label=Release&color=3b82f6" alt="Release" /></a>
+  <a href="https://github.com/sunnyhmz7010/meowbridge/blob/main/LICENSE"><img src="https://img.shields.io/github/license/sunnyhmz7010/meowbridge?color=10b981" alt="License" /></a>
   <a href="https://github.com/sunnyhmz7010/meowbridge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/sunnyhmz7010/meowbridge/ci.yml?branch=main&label=CI" alt="CI" /></a>
 </p>
 
