@@ -1,12 +1,12 @@
 name: Docker Publish
 
+permissions:
+  packages: write
+
 on:
   push:
     tags:
       - 'v*'
-
-permissions:
-  packages: write
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
